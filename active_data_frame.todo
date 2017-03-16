@@ -1,0 +1,67 @@
+ ✔ Generator creates A migration and data_frame and block classes. Block/DataFrame classes have a type, a period unit and a period length @done (17-01-12 10:29)
+ ✔ Type is: @done (17-01-12 10:29)
+   ✔ Bit @done (17-01-12 10:29)
+   ✔ Short @done (17-01-12 10:29)
+   ✔ Int @done (17-01-12 10:29)
+   ✔ Long @done (17-01-12 10:29)
+   ✔ Float @done (17-01-12 10:29)
+   ✔ Double @done (17-01-12 10:29)
+
+ ✔ Insert useful metadata into block type class. @done (17-01-12 19:43)
+   ✔ Number of columns @done (17-01-12 19:43)
+   ✔ Column getters @done (17-01-12 19:43)
+   ✔ Column setters @done (17-01-12 19:43)
+   ✔ Select SQL @done (17-01-12 19:43)
+
+ ✔ DataBlock and DataDataFrame provides: @done (17-01-12 19:43)
+   ✔ #[] @done (17-01-12 19:43)
+   ✔ #[]= @done (17-01-12 19:43)
+   ✔ #self.matrix(columns:, *time, period_unit: period_length: default derive from first) @done (17-01-12 19:43)
+   ✔ #self.avg @done (17-01-12 19:43)
+   ✔ #self.sum @done (17-01-12 19:43)
+   ✔ #self.count_zero @done (17-01-12 19:43)
+   ✔ #self.where @done (17-01-12 19:43)
+   ✔ #self.max @done (17-01-12 19:43)
+   ✔ #self.min @done (17-01-12 19:43)
+ ✔ Bulk service can bulk insert and update (Implement for PostgreSQL first) @done (17-01-12 19:43)
+ ✔ Time helper service @done (17-01-12 19:43)
+
+ Thoughts:
+   ✔ Can extract non-contiguous columns at once (Optimise) @done (17-01-14 09:40)
+   ✔ Extract doesn't use from, count. Use either: @done (17-01-14 09:40)
+         ✔ [from..to] @done (17-01-14 09:40)
+         ✔ [from1, from2, from3] @done (17-01-14 09:40)
+ ✔ Class can define column mapper array (create reverse object to index hash from this) @done (17-01-14 21:46)
+ ✔ Column mapper function is used in column_mapper for results @done (17-01-14 21:46)
+ ✔ Row mapper will translate ActiveRecord items to indices @done (17-01-14 21:46)
+ ✔ Add column and row maps to results @done (17-01-14 21:46)
+
+✔ Add where queries based on column names. @done (17-01-16 09:21)
+   ✔ E.g @done (17-01-16 09:21)
+      ✔ Iris.where(Iris.columns.sepal_length == 3).or(Iris.columns.petal_length < 3) @done (17-01-16 09:21)
+
+✔ Rename to active data frame @done (17-01-24 18:28)
+✔ Add option to name columns and rows RMatrix (For printing) @done (17-02-27 09:20)
+✔ Finish RMatrix @done (17-03-02 09:01)
+
+RMatrix:
+   ☐ Ensure assignment works
+   ☐ Raw is simply a copy of self without mappings
+ActiveDataFrame:
+    ☐ dimensions_minimum
+    ☐ dimensions_maximum
+    ☐ dimensions_sum
+    ☐ dimensions_average
+ActiveRecordMonetDBAdapter:
+   ☐ Work on support for MonetDB
+
+ Utilities:
+   ☐ KMeans clustering and DBScan built in to multi-d array
+   ☐ Build generic Merge/Cache structure which will either cache infinite columns or rows
+   - class Unit
+       - df_cache :all_loads, ::loads,  direction: :row
+   - end
+
+Ruby dataframe library inspiration:
+   - Integration with Nyaplot
+   - Integration with Statsample
