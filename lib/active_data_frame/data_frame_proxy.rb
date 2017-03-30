@@ -2,7 +2,7 @@ module ActiveDataFrame
   class DataFrameProxy
     attr_accessor :block_type, :data_frame_type, :block_type_name
     def initialize(block_type, data_frame_type)
-      self.block_type  = block_type
+      self.block_type      = block_type
       self.data_frame_type = data_frame_type
       self.block_type_name = block_type.table_name.gsub(/_blocks$/,'')
     end
@@ -12,7 +12,7 @@ module ActiveDataFrame
     end
 
     def []=(from, values)
-      from = column_map ? column_map[from] : from
+      from = column_map[from] if column_map && column_map[from]
       set(from, M[values].to_a.flatten)
     end
 
@@ -47,12 +47,19 @@ module ActiveDataFrame
       end
     end
 
+    def range_size
+      0
+    end
+
+    def flatten_ranges(ranges)
+    end
+
     def unmap_ranges(ranges, map)
       ranges.map do |range|
         case range
         when Range
-          first       = map[range.first] || range.first
-          ends        = map[range.end] || range.end
+          first       = (map[range.first] rescue nil) || range.first
+          ends        = (map[range.end] rescue nil) || range.end
           range.exclude_end? ? first...ends : first..ends
         else map[range] || range
         end
@@ -94,11 +101,11 @@ module ActiveDataFrame
       end
     end
 
-    def blocks_between(bounds)
+    def blocks_between(bounds, block_scope: scope)
       bounds[1..-1].reduce(
-        scope.where(period_index: (bounds[0].from.index..bounds[0].to.index).to_a)
+        block_scope.where( block_type.table_name => { period_index: (bounds[0].from.index..bounds[0].to.index)})
       ) do | or_chain, bound|
-        or_chain.or(scope.where(period_index: (bound.from.index..bound.to.index).to_a))
+        or_chain.or(block_scope.where( block_type.table_name => { period_index: (bound.from.index..bound.to.index)}))
       end
     end
   end

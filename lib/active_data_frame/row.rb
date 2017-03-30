@@ -41,39 +41,37 @@ module ActiveDataFrame
       all_bounds = ranges.map.with_index do |range, index|
         get_bounds(range.first, range.exclude_end? ? range.end - 1 : range.end, index)
       end
-      self.class.suppress_logs do
-        existing = blocks_between(all_bounds).pluck(:period_index, *block_type::COLUMNS).map{|pi, *values| [pi, values]}.to_h
-        result   = M.blank(columns: all_bounds.map(&:length).sum)
+      existing = blocks_between(all_bounds).pluck(:period_index, *block_type::COLUMNS).map{|pi, *values| [pi, values]}.to_h
+      result   = M.blank(columns: all_bounds.map(&:length).sum)
 
-        iterate_bounds(all_bounds) do |index, left, right, cursor, size|
-          if block = existing[index]
-            chunk = block[left..right]
-            result.narray[cursor...cursor + size] = chunk.length == 1 ? chunk.first : chunk
-          end
+      iterate_bounds(all_bounds) do |index, left, right, cursor, size|
+        if block = existing[index]
+          chunk = block[left..right]
+          result.narray[cursor...cursor + size] = chunk.length == 1 ? chunk.first : chunk
         end
-
-        if column_map
-          total = 0
-          range_sizes = ranges.map do |range, memo|
-            last_total = total
-            total += range.size
-            [range.first, range.size, last_total]
-          end
-          index_of = ->(column){
-            selected = range_sizes.find{|start, size, total| start <= column && start + size >= column}
-            if selected
-              start, size, total = selected
-              (column - start) + total
-            else
-              nil
-            end
-          }
-          result.column_map = column_map.map do |name, column|
-            [name, index_of[column_map[name]]]
-          end.to_h
-        end
-        result
       end
+
+      if column_map
+        total = 0
+        range_sizes = ranges.map do |range, memo|
+          last_total = total
+          total += range.size
+          [range.first, range.size, last_total]
+        end
+        index_of = ->(column){
+          selected = range_sizes.find{|start, size, total| start <= column && start + size >= column}
+          if selected
+            start, size, total = selected
+            (column - start) + total
+          else
+            nil
+          end
+        }
+        result.column_map = column_map.map do |name, column|
+          [name, index_of[column_map[name]]]
+        end.to_h
+      end
+      result
     end
 
     private
@@ -81,11 +79,22 @@ module ActiveDataFrame
       # Update block data for all blocks in a single call
       ##
       def bulk_update(existing)
-        updates = ''
-        existing.each do |period_index, (values, id)|
-          updates <<  "(#{id}, #{values.join(',')}),"
+        case ActiveRecord::Base.connection_config[:adapter]
+        when 'postgresql'
+          # Fast bulk update
+          updates = ''
+          existing.each do |period_index, (values, id)|
+            updates <<  "(#{id}, #{values.join(',')}),"
+          end
+          perform_update(updates)
+        else
+          ids = existing.map {|_, (_, id)| id}
+          updates = block_type::COLUMNS.map.with_index do |column, column_idx|
+            [column, "CASE period_index\n#{existing.map{|period_index, (values, id)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
+          end.to_h
+          update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
+          block_type.connection.execute("UPDATE #{block_type.table_name} SET #{update_statement} WHERE #{block_type.table_name}.id IN (#{ids.join(',')});")
         end
-        perform_update(updates)
       end
 
       ##
@@ -94,7 +103,11 @@ module ActiveDataFrame
       def bulk_insert(new_blocks)
         inserts = ''
         new_blocks.each do |period_index, (values)|
-          inserts << "(#{values.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}', now(), now()),"
+          inserts << \
+          case ActiveRecord::Base.connection_config[:adapter]
+          when 'postgresql', 'mysql2' then "(#{values.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}', now(), now()),"
+          else "(#{values.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}', datetime(), datetime()),"
+          end
         end
         perform_insert(inserts)
       end
