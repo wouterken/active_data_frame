@@ -46,7 +46,8 @@ module ActiveDataFrame
     to_inject.extend ActiveSupport::Concern
     to_inject.included do
       define_method(singular_table_name){
-        @data_frame_proxy ||= Row.new(block_type, self.class, self)
+        @data_frame_proxies ||= {}
+        @data_frame_proxies[singular_table_name] ||= Row.new(block_type, self.class, self)
       }
 
       define_method(:inspect){
@@ -88,7 +89,7 @@ module ActiveDataFrame
         blocks_for_tables = scope.instance_eval{ @blocks_for_tables ||= {} }
         included_blocks = blocks_for_tables[singular_table_name] ||= {}
         dimensions.flatten.each do |key|
-          if unmap
+          if unmap && column_map(singular_table_name)
             idx = column_map(singular_table_name)[key]
           else
             idx = key

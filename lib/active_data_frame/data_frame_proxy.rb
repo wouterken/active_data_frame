@@ -4,7 +4,7 @@ module ActiveDataFrame
     def initialize(block_type, data_frame_type)
       self.block_type      = block_type
       self.data_frame_type = data_frame_type
-      self.block_type_name = block_type.table_name.gsub(/_blocks$/,'')
+      self.block_type_name = block_type.table_name.gsub(/_blocks$/,'').gsub(/^blocks_/,'')
     end
 
     def [](*ranges)
@@ -13,7 +13,7 @@ module ActiveDataFrame
 
     def []=(from, values)
       from = column_map[from] if column_map && column_map[from]
-      set(from, M[values].to_a.flatten)
+      set(from, M[values, typecode: block_type::TYPECODE].to_a.flatten)
     end
 
     def column_map

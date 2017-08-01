@@ -12,15 +12,6 @@ Gem::Specification.new do |spec|
   spec.summary       = 'An active data frame helper'
   spec.description   = 'An active data frame helper'
 
-  # Prevent pushing this gem to RubyGems.org. To allow pushes either set the 'allowed_push_host'
-  # to allow pushing to a single host or delete this section to allow pushing to any host.
-  if spec.respond_to?(:metadata)
-    spec.metadata['allowed_push_host'] = "TODO: Set to 'http://mygemserver.com'"
-  else
-    raise "RubyGems 2.0 or newer is required to protect against " \
-      "public gem pushes."
-  end
-
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
     f.match(%r{^(test|spec|features)/})
   end
@@ -32,6 +23,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "pry-byebug", "~> 3.4.0", '>= 3.4.0'
   spec.add_development_dependency 'pry', '~> 0.10.2', '>= 0.10.0'
-  spec.add_runtime_dependency 'activerecord', '~> 5.0.0'
-  spec.add_runtime_dependency 'rmatrix', '~> 0.1.9'
+  spec.add_runtime_dependency     'activerecord', '~> 5.0.0'
+  spec.add_runtime_dependency     'rmatrix', '~> 0.1.10', '>=0.1.10'
 end

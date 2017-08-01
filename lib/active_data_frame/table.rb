@@ -1,5 +1,6 @@
 module ActiveDataFrame
   class Table < DataFrameProxy
+
     def set(from, values)
       data_frame_type.find_each do |instance|
         Row.new(self.block_type, self.data_frame_type, instance).set(from, values)
@@ -10,42 +11,9 @@ module ActiveDataFrame
       "#{data_frame_type.name} Table"
     end
 
-    def get_small(ranges)
-      ranges = extract_ranges(ranges).flat_map do |range|
-        case range
-        when Fixnum then range
-        when Range then range.to_a
-        end
-      end
-      self.class.suppress_logs do
-        dt = data_frame_type.include_data_blocks(self.block_type_name.pluralize, ranges, unmap: false)
-
-        M[dt.where(id: dt).pluck(*ranges.map{|i| "t#{i}"})]
-      end
-    end
-
-    # def sum2(*ranges)
-    #   dt = data_frame_type.include_data_blocks(self.block_type_name.pluralize, *ranges)
-    #   M[dt.where(id: dt).pluck(*ranges.map{|r| "SUM(\"#{r}\")" })]
-    # end
-
-    # def avg(ranges)
-    #   dt = data_frame_type.include_data_blocks(self.block_type_name.pluralize, *ranges)
-    #   M[dt.pluck(*ranges.map{|r| "AVG(\"#{r}\")" })]
-    # end
-
-    # def max(ranges)
-    #   dt = data_frame_type.include_data_blocks(self.block_type_name.pluralize, *ranges)
-    #   M[dt.pluck(*ranges.map{|r| "MAX(\"#{r}\")" })]
-    # end
-
-    # def min(ranges)
-    #   dt = data_frame_type.include_data_blocks(self.block_type_name.pluralize, *ranges)
-    #   M[dt.pluck(*ranges.map{|r| "MIN(\"#{r}\")" })]
-    # end
-
     def build_case_map(all_bounds)
       map = block_type::COLUMNS.map{|col| [col, []]}.to_h
+
       all_bounds.each do |bound|
         case bound.from.index
         when bound.to.index
@@ -53,7 +21,7 @@ module ActiveDataFrame
             map["t#{col_idx}"] << (bound.from.index..bound.from.index)
           end
         else
-          (bound.from.offset+1...block_type::COLUMNS.size).each do |col_idx|
+          (bound.from.offset+1..block_type::COLUMNS.size).each do |col_idx|
             map["t#{col_idx}"] << (bound.from.index..bound.from.index)
           end
           (1..block_type::COLUMNS.size).each do |col_idx|
@@ -93,7 +61,7 @@ module ActiveDataFrame
               else "period_index BETWEEN #{match.begin} AND #{match.end}"
               end
             end.join(" OR ")
-            "CASE WHEN #{case_str} THEN #{agg}(#{col}) ELSE 0 END"
+            "CASE WHEN #{case_str} THEN #{agg}(#{col}) ELSE NULL END"
           end
         else
           case col_cases.length
@@ -105,7 +73,7 @@ module ActiveDataFrame
               else "period_index BETWEEN #{match.begin} AND #{match.end}"
               end
             end.join(" OR ")
-            "CASE WHEN #{case_str} THEN #{col} ELSE 0 END"
+            "CASE WHEN #{case_str} THEN #{col} ELSE NULL END"
           end
         end
       end
@@ -143,7 +111,7 @@ module ActiveDataFrame
         existing_blocks[pi][data_frame_id] = values
       end
 
-      result = M.blank(columns: all_bounds.map(&:length).sum, rows: index_map.size)
+      result = M.blank(typecode: block_type::TYPECODE, columns: all_bounds.map(&:length).sum, rows: index_map.size)
       iterate_bounds(all_bounds) do |index, left, right, cursor, size|
         if blocks = existing_blocks[index]
           blocks.each do |data_frame_id, block|
@@ -154,7 +122,7 @@ module ActiveDataFrame
           end
         end
       end
-      if column_map
+      if column_map && !column_map.default_proc
         total = 0
         range_sizes = ranges.map do |range, memo|
           last_total = total
@@ -195,20 +163,29 @@ module ActiveDataFrame
       select_agg_indices(extract_ranges(ranges), 'SUM', ->(x, y){ x >= y } , 'SUM(%) < :min', min: min)
     end
 
-    def avg(*ranges)
-      aggregate(extract_ranges(ranges), 'AVG')
+    def AggregateProxy(agg)
+      proxy = Object.new
+      aggregate, extract_ranges = method(:aggregate), method(:extract_ranges)
+      proxy.define_singleton_method(:[]) do |*ranges|
+        aggregate[extract_ranges[ranges], agg]
+      end
+      proxy
     end
 
-    def sum(*ranges)
-      aggregate(extract_ranges(ranges), 'SUM')
+    def avg
+      @avg ||= AggregateProxy('AVG')
     end
 
-    def max(*ranges)
-      aggregate(extract_ranges(ranges), 'MAX')
+    def sum
+      @sum ||= AggregateProxy('SUM')
     end
 
-    def min(*ranges)
-      aggregate(extract_ranges(ranges), 'MIN')
+    def max
+      @max ||= AggregateProxy('MAX')
+    end
+
+    def min
+      @min ||= AggregateProxy('MIN')
     end
 
     private
@@ -238,7 +215,7 @@ module ActiveDataFrame
           .map{|pi, *values| [pi, values]}.to_h
         indices = existing.flat_map do |period_index, *values|
           index = block_type::BLOCK_SIZE * period_index - 1
-          M[values].mask{|x|
+          M[values, typecode: block_type::TYPECODE].mask{|x|
             index += 1
             !all_bounds.any?{|b| (b.from.position..b.to.position).include?(index) } || filter[x, args.values.first ]
           }.where.to_a.map{|v| block_type::BLOCK_SIZE * period_index + v}.to_a
@@ -257,11 +234,11 @@ module ActiveDataFrame
         end
 
         case_map  = build_case_map(all_bounds)
-        existing = blocks_between(all_bounds)
+        existing  = blocks_between(all_bounds)
                     .group(:period_index)
                     .pluck(:period_index, *column_cases(case_map, agg))
                     .map{|pi, *values| [pi, values]}.to_h
-        result = M.blank(columns: all_bounds.map(&:length).sum)
+        result = M.blank(columns: all_bounds.map(&:length).sum, typecode: block_type::TYPECODE)
 
         iterate_bounds(all_bounds) do |index, left, right, cursor, size|
           if block = existing[index]

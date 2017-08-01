@@ -41,8 +41,9 @@ module ActiveDataFrame
       all_bounds = ranges.map.with_index do |range, index|
         get_bounds(range.first, range.exclude_end? ? range.end - 1 : range.end, index)
       end
+
       existing = blocks_between(all_bounds).pluck(:period_index, *block_type::COLUMNS).map{|pi, *values| [pi, values]}.to_h
-      result   = M.blank(columns: all_bounds.map(&:length).sum)
+      result   = M.blank(typecode: block_type::TYPECODE, columns: all_bounds.map(&:length).sum)
 
       iterate_bounds(all_bounds) do |index, left, right, cursor, size|
         if block = existing[index]
@@ -51,7 +52,7 @@ module ActiveDataFrame
         end
       end
 
-      if column_map
+      if column_map && !column_map.default_proc
         total = 0
         range_sizes = ranges.map do |range, memo|
           last_total = total
@@ -84,7 +85,7 @@ module ActiveDataFrame
           # Fast bulk update
           updates = ''
           existing.each do |period_index, (values, id)|
-            updates <<  "(#{id}, #{values.join(',')}),"
+            updates <<  "(#{id}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
           end
           perform_update(updates)
         else
@@ -105,8 +106,8 @@ module ActiveDataFrame
         new_blocks.each do |period_index, (values)|
           inserts << \
           case ActiveRecord::Base.connection_config[:adapter]
-          when 'postgresql', 'mysql2' then "(#{values.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}', now(), now()),"
-          else "(#{values.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}', datetime(), datetime()),"
+          when 'postgresql', 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}', now(), now()),"
+          else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}', datetime(), datetime()),"
           end
         end
         perform_insert(inserts)

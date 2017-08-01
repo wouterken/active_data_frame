@@ -15,7 +15,7 @@ module ActiveDataFrame
     end
 
     def generate_model
-      invoke "active_record:model", [singular_block_table_name], migration: false
+      invoke "active_record:model", ["blocks/#{singular_block_table_name}"], migration: false
     end
 
     def block_type
@@ -49,10 +49,12 @@ module ActiveDataFrame
     def inject_data_frame_helpers
       content = \
 <<RUBY
-  BLOCK_SIZE=#{columns}
-  COLUMNS=%w(#{columns.times.map{|i| "t#{i+1}" }.join(" ")})
+  BLOCK_SIZE = #{columns}
+  COLUMNS = %w(#{columns.times.map{|i| "t#{i+1}" }.join(" ")})
+  TYPECODE = M::Typecode::FLOAT
+  self.table_name = '#{block_table_name}'
 RUBY
-      class_name = singular_block_table_name.camelize
+      class_name = "Blocks::#{singular_block_table_name.camelize}"
       inject_into_class(self.class.path_for_model(singular_block_table_name), class_name, content) if self.class.model_exists?(singular_block_table_name, destination_root)
     end
 
@@ -61,7 +63,7 @@ RUBY
     end
 
     def self.path_for_model(model)
-      File.join("app", "models", "#{model.underscore}.rb")
+      File.join("app", "models", "blocks", "#{model.underscore}.rb")
     end
 
     def self.model_exists?(model, destination_root)
