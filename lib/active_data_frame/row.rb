@@ -3,8 +3,8 @@ module ActiveDataFrame
 
     attr_accessor :instance
 
-    def initialize(block_type, data_frame_type, instance)
-      super(block_type, data_frame_type)
+    def initialize(block_type, data_frame_type, instance, value_map: nil)
+      super(block_type, data_frame_type, value_map: value_map)
       self.instance = instance
     end
 
@@ -60,9 +60,9 @@ module ActiveDataFrame
           [range.first, range.size, last_total]
         end
         index_of = ->(column){
-          selected = range_sizes.find{|start, size, total| start <= column && start + size >= column}
+          selected = range_sizes.find{|start, size| start <= column && start + size >= column}
           if selected
-            start, size, total = selected
+            start, _, total = selected
             (column - start) + total
           else
             nil
@@ -91,7 +91,7 @@ module ActiveDataFrame
         else
           ids = existing.map {|_, (_, id)| id}
           updates = block_type::COLUMNS.map.with_index do |column, column_idx|
-            [column, "CASE period_index\n#{existing.map{|period_index, (values, id)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
+            [column, "CASE period_index\n#{existing.map{|period_index, (values, _)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
           end.to_h
           update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
           block_type.connection.execute("UPDATE #{block_type.table_name} SET #{update_statement} WHERE #{block_type.table_name}.id IN (#{ids.join(',')});")

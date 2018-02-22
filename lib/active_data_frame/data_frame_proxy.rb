@@ -1,31 +1,45 @@
 module ActiveDataFrame
+
+  class Bounds < Struct.new(:from, :to, :length, :index); end
+  class Point  < Struct.new(:index, :offset, :position);  end
   class DataFrameProxy
-    attr_accessor :block_type, :data_frame_type, :block_type_name
-    def initialize(block_type, data_frame_type)
+    attr_accessor :block_type, :data_frame_type, :block_type_name, :value_map
+    def initialize(block_type, data_frame_type, value_map: nil)
       self.block_type      = block_type
       self.data_frame_type = data_frame_type
       self.block_type_name = block_type.table_name.gsub(/_blocks$/,'').gsub(/^blocks_/,'')
+      self.value_map       = value_map
+    end
+
+    def reverse_value_map
+      @reverse_value_map ||= value_map.invert
     end
 
     def [](*ranges)
-      get(extract_ranges(ranges))
+      result = ActiveDataFrame::DataFrameProxy.suppress_logs{ get(extract_ranges(ranges)) }
+      if @value_map
+        result.to_a.map{|row| row.kind_of?(Array) ? row.map(&reverse_value_map.method(:[])) : reverse_value_map[row]}
+      else
+        result
+      end
     end
 
     def []=(from, values)
+      values = Array(values).flatten.map(&@value_map.method(:[])) if @value_map
       from = column_map[from] if column_map && column_map[from]
-      set(from, M[values, typecode: block_type::TYPECODE].to_a.flatten)
+      ActiveDataFrame::DataFrameProxy.suppress_logs{ set(from, M[values, typecode: block_type::TYPECODE].to_a.flatten) }
     end
 
     def column_map
-      data_frame_type.column_map(self.block_type_name)
+      data_frame_type.column_map(data_frame_type.singular_df_name)
     end
 
     def column_name_map
-      data_frame_type.column_name_map(self.block_type_name)
+      data_frame_type.column_name_map(data_frame_type.singular_df_name)
     end
 
     def reverse_column_map
-      data_frame_type.reverse_column_map(self.block_type_name)
+      data_frame_type.reverse_column_map(data_frame_type.singular_df_name)
     end
 
     def method_missing(name, *args, &block)
@@ -42,7 +56,7 @@ module ActiveDataFrame
         case range
         when Range then range
         when Fixnum then range..range
-        else raise "Unexpected index #{range}"
+        else raise "Unexpected index for data frame proxy #{range}, expecting either a Range or an Integer"
         end
       end
     end
@@ -71,9 +85,9 @@ module ActiveDataFrame
       from_block_offset = from % block_type::BLOCK_SIZE
       to_block_index    = to / block_type::BLOCK_SIZE
       to_block_offset   = to % block_type::BLOCK_SIZE
-      return Struct.new(:from, :to, :length, :index).new(
-        Struct.new(:index, :offset, :position).new(from_block_index, from_block_offset, from),
-        Struct.new(:index, :offset, :position).new(to_block_index,   to_block_offset, to),
+      return Bounds.new(
+        Point.new(from_block_index, from_block_offset, from),
+        Point.new(to_block_index,   to_block_offset, to),
         (to - from) + 1,
         index
       )

@@ -35,7 +35,7 @@ module ActiveDataFrame
       map
     end
 
-    def column_cases(cases, agg=nil)
+    def column_cases(cases, aggregation_function=nil)
       block_type::COLUMNS.map do |col|
         col_cases = cases[col].sort_by(&:begin).reduce([]) do |agg, col_case|
           if agg.empty?
@@ -51,7 +51,7 @@ module ActiveDataFrame
           end
         end
 
-        if agg
+        if aggregation_function
           case col_cases.length
           when 0 then "NULL as #{col}"
           else
@@ -61,7 +61,7 @@ module ActiveDataFrame
               else "period_index BETWEEN #{match.begin} AND #{match.end}"
               end
             end.join(" OR ")
-            "CASE WHEN #{case_str} THEN #{agg}(#{col}) ELSE NULL END"
+            "CASE WHEN #{case_str} THEN #{aggregation_function}(#{col}) ELSE NULL END"
           end
         else
           case col_cases.length
@@ -130,9 +130,9 @@ module ActiveDataFrame
           [range.first, range.size, last_total]
         end
         index_of = ->(column){
-          selected = range_sizes.find{|start, size, total| start <= column && start + size >= column}
+          selected = range_sizes.find{|start, size| start <= column && start + size >= column}
           if selected
-            start, size, total = selected
+            start, _, total = selected
             (column - start) + total
           else
             nil
@@ -221,6 +221,7 @@ module ActiveDataFrame
           }.where.to_a.map{|v| block_type::BLOCK_SIZE * period_index + v}.to_a
         end
 
+        binding.pry
         if column_map
           indices.map{|i| reverse_column_map[i.to_i] || i.to_i }
         else

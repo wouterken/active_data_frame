@@ -4,7 +4,7 @@ module ActiveDataFrame
   class InstallGenerator < ActiveRecord::Generators::Base
     desc "Generates a new data_frame type"
 
-    STREAM_TYPES = %w(bit byte int long float double)
+    STREAM_TYPES = %w(bit byte integer long float double)
     # Commandline options can be defined here using Thor-like options:
     argument :type,    :type => :string, :default => 'float', :desc => "DataFrame type. One of(#{STREAM_TYPES*" ,"})"
     argument :columns, :type => :numeric, :default => 512, :desc => "Number of columns"
@@ -46,12 +46,20 @@ module ActiveDataFrame
       end
     end
 
+    def get_typecode
+      case type
+      when "float", "double" then M::Typecode::FLOAT
+      when "integer", "long" then M::Typecode::INT
+      when "bit", "byte"     then M::Typecode::BYTE
+      end
+    end
+
     def inject_data_frame_helpers
       content = \
 <<RUBY
   BLOCK_SIZE = #{columns}
   COLUMNS = %w(#{columns.times.map{|i| "t#{i+1}" }.join(" ")})
-  TYPECODE = M::Typecode::FLOAT
+  TYPECODE = #{get_typecode}
   self.table_name = '#{block_table_name}'
 RUBY
       class_name = "Blocks::#{singular_block_table_name.camelize}"
