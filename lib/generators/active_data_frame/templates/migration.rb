@@ -6,6 +6,6 @@ class ActiveDataFrameCreate<%= table_name.camelize %> < ActiveRecord::Migration<
     end
 
 
-    add_index :<%= block_table_name %>, [:data_frame_type, :data_frame_id , :period_index], :unique => true, name: 'index_<%= block_table_name %>_on_type_id_and_index'
+    add_index :<%= block_table_name %>, [:data_frame_id , :period_index, :data_frame_type], :unique => true, name: 'index_<%= block_table_name %>_id_index_and_type'
   end
 end

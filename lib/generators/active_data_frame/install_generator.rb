@@ -84,9 +84,9 @@ RUBY
 
     def migration_data
 <<RUBY
-      t.integer :data_frame_id, index: true
-      t.string  :data_frame_type, index: true
-      t.integer :period_index, index: true
+      t.integer :data_frame_id
+      t.string  :data_frame_type
+      t.integer :period_index
 #{
     columns.times.map do |i|
 "      t.#{type} :t#{i+1}"

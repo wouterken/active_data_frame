@@ -16,7 +16,7 @@ module ActiveDataFrame
       to     = (from + values.length) - 1
       bounds = get_bounds(from, to)
 
-      self.class.suppress_logs do
+      # self.class.suppress_logs do
         new_blocks = Hash.new do |h, k|
           h[k] = [[0] * block_type::BLOCK_SIZE]
         end
@@ -34,7 +34,7 @@ module ActiveDataFrame
         bulk_update(existing) unless existing.size.zero?
         bulk_insert(new_blocks) unless new_blocks.size.zero?
         values
-      end
+      # end
     end
 
     def get(ranges)
@@ -80,22 +80,22 @@ module ActiveDataFrame
       # Update block data for all blocks in a single call
       ##
       def bulk_update(existing)
-        case ActiveRecord::Base.connection_config[:adapter]
-        when 'postgresql'
-          # Fast bulk update
-          updates = ''
-          existing.each do |period_index, (values, id)|
-            updates <<  "(#{id}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
-          end
-          perform_update(updates)
-        else
+        # case ActiveRecord::Base.connection_config[:adapter]
+        # when 'postgresql'
+        #   # Fast bulk update
+        #   updates = ''
+        #   existing.each do |period_index, (values, id)|
+        #     updates <<  "(#{id}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
+        #   end
+        #   perform_update(updates)
+        # else
           ids = existing.map {|_, (_, id)| id}
           updates = block_type::COLUMNS.map.with_index do |column, column_idx|
             [column, "CASE period_index\n#{existing.map{|period_index, (values, _)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
           end.to_h
           update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
           block_type.connection.execute("UPDATE #{block_type.table_name} SET #{update_statement} WHERE #{block_type.table_name}.id IN (#{ids.join(',')});")
-        end
+        # end
       end
 
       ##

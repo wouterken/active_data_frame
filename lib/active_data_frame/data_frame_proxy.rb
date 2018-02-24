@@ -16,7 +16,7 @@ module ActiveDataFrame
     end
 
     def [](*ranges)
-      result = ActiveDataFrame::DataFrameProxy.suppress_logs{ get(extract_ranges(ranges)) }
+      result = get(extract_ranges(ranges))
       if @value_map
         result.to_a.map{|row| row.kind_of?(Array) ? row.map(&reverse_value_map.method(:[])) : reverse_value_map[row]}
       else
@@ -27,7 +27,7 @@ module ActiveDataFrame
     def []=(from, values)
       values = Array(values).flatten.map(&@value_map.method(:[])) if @value_map
       from = column_map[from] if column_map && column_map[from]
-      ActiveDataFrame::DataFrameProxy.suppress_logs{ set(from, M[values, typecode: block_type::TYPECODE].to_a.flatten) }
+      set(from, M[values, typecode: block_type::TYPECODE].to_a.flatten)
     end
 
     def column_map
@@ -115,11 +115,15 @@ module ActiveDataFrame
       end
     end
 
+    def match_range(from, to)
+      from == to ? from : from..to
+    end
+
     def blocks_between(bounds, block_scope: scope)
       bounds[1..-1].reduce(
-        block_scope.where( block_type.table_name => { period_index: (bounds[0].from.index..bounds[0].to.index)})
+        block_scope.where( block_type.table_name => { period_index: match_range(bounds[0].from.index,bounds[0].to.index)})
       ) do | or_chain, bound|
-        or_chain.or(block_scope.where( block_type.table_name => { period_index: (bound.from.index..bound.to.index)}))
+        or_chain.or(block_scope.where( block_type.table_name => { period_index: match_range(bound.from.index,bound.to.index)}))
       end
     end
   end
