@@ -42,6 +42,10 @@ module ActiveDataFrame
       data_frame_type.reverse_column_map(data_frame_type.singular_df_name)
     end
 
+    def database
+      @database ||= DatabaseConfig.for_types(block: block_type, df: data_frame_type)
+    end
+
     def method_missing(name, *args, &block)
       if column_name_map && column_map[name]
         self[name]
@@ -94,10 +98,11 @@ module ActiveDataFrame
     end
 
     def self.suppress_logs
-      ActiveRecord::Base.logger, old_logger = nil,  ActiveRecord::Base.logger
-      yield.tap do
-        ActiveRecord::Base.logger = old_logger
-      end
+      # ActiveRecord::Base.logger, old_logger = nil,  ActiveRecord::Base.logger
+      # yield.tap do
+      #   ActiveRecord::Base.logger = old_logger
+      # end
+      yield
     end
 
     def iterate_bounds(all_bounds)

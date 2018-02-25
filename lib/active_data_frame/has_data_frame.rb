@@ -1,5 +1,3 @@
-require 'ostruct'
-
 module ActiveDataFrame
   #
   # Modules can include HasDataFrame('frame_name', FrameBlockType) to gain data frame capabilities

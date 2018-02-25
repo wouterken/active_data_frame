@@ -2,8 +2,10 @@ module ActiveDataFrame
   class Table < DataFrameProxy
 
     def set(from, values)
-      data_frame_type.find_each do |instance|
-        Row.new(self.block_type, self.data_frame_type, instance).set(from, values)
+      ActiveDataFrame::DatabaseConfig.batch do
+        data_frame_type.each do |instance|
+          Row.new(self.block_type, self.data_frame_type, instance).set(from, values)
+        end
       end
     end
 
