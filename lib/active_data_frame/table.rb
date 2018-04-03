@@ -2,7 +2,7 @@ module ActiveDataFrame
   class Table < DataFrameProxy
 
     def set(from, values)
-      ActiveDataFrame::DatabaseConfig.batch do
+      ActiveDataFrame::Database.batch do
         data_frame_type.each do |instance|
           Row.new(self.block_type, self.data_frame_type, instance).set(from, values)
         end
@@ -55,7 +55,7 @@ module ActiveDataFrame
 
         if aggregation_function
           case col_cases.length
-          when 0 then "NULL as #{col}"
+          when 0 then "NULL::float as #{col}"
           else
             case_str = col_cases.map do |match|
               case
@@ -94,7 +94,6 @@ module ActiveDataFrame
       index_map = {}
       res = ActiveRecord::Base.transaction do
         ids = data_frame_type.pluck(:id)
-
         as_sql = blocks_between(
           all_bounds,
           block_scope: data_frame_type.unscoped
@@ -158,11 +157,11 @@ module ActiveDataFrame
     end
 
     def idx_where_sum_gte(*ranges, max)
-      select_agg_indices(extract_ranges(ranges), 'SUM', ->(x, y){ x <= y } , 'SUM(%) > :max', max: max)
+      select_agg_indices(extract_ranges(ranges), 'SUM', ->(x, y){ x <= y } , 'SUM(%) >= :max', max: max)
     end
 
     def idx_where_sum_lte(*ranges, min)
-      select_agg_indices(extract_ranges(ranges), 'SUM', ->(x, y){ x >= y } , 'SUM(%) < :min', min: min)
+      select_agg_indices(extract_ranges(ranges), 'SUM', ->(x, y){ x >= y } , 'SUM(%) <= :min', min: min)
     end
 
     def AggregateProxy(agg)
@@ -223,7 +222,6 @@ module ActiveDataFrame
           }.where.to_a.map{|v| block_type::BLOCK_SIZE * period_index + v}.to_a
         end
 
-        binding.pry
         if column_map
           indices.map{|i| reverse_column_map[i.to_i] || i.to_i }
         else
@@ -237,9 +235,7 @@ module ActiveDataFrame
         end
 
         case_map  = build_case_map(all_bounds)
-        existing  = blocks_between(all_bounds)
-                    .group(:period_index)
-                    .pluck(:period_index, *column_cases(case_map, agg))
+        existing  = blocks_between(all_bounds).group(:period_index).pluck(:period_index, *column_cases(case_map, agg))
                     .map{|pi, *values| [pi, values]}.to_h
         result = M.blank(columns: all_bounds.map(&:length).sum, typecode: block_type::TYPECODE)
 

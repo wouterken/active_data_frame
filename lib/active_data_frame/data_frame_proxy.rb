@@ -1,14 +1,18 @@
 module ActiveDataFrame
 
-  class Bounds < Struct.new(:from, :to, :length, :index); end
-  class Point  < Struct.new(:index, :offset, :position);  end
+  require_relative 'point'
+  require_relative 'bounds'
+
   class DataFrameProxy
-    attr_accessor :block_type, :data_frame_type, :block_type_name, :value_map
-    def initialize(block_type, data_frame_type, value_map: nil)
-      self.block_type      = block_type
-      self.data_frame_type = data_frame_type
-      self.block_type_name = block_type.table_name.gsub(/_blocks$/,'').gsub(/^blocks_/,'')
-      self.value_map       = value_map
+    attr_accessor :block_type, :data_frame_type, :block_type_name, :value_map, :singular_df_name, :plural_df_name
+
+    def initialize(block_type, data_frame_type, value_map: nil, singular_df_name: '', plural_df_name: '')
+      self.block_type       = block_type
+      self.data_frame_type  = data_frame_type
+      self.block_type_name  = block_type.table_name.gsub(/_blocks$/,'').gsub(/^blocks_/,'')
+      self.value_map        = value_map
+      self.singular_df_name = singular_df_name
+      self.plural_df_name   = plural_df_name
     end
 
     def reverse_value_map
@@ -18,6 +22,7 @@ module ActiveDataFrame
     def [](*ranges)
       result = get(extract_ranges(ranges))
       if @value_map
+        # TODO Multi-dimensions #map would be nice
         result.to_a.map{|row| row.kind_of?(Array) ? row.map(&reverse_value_map.method(:[])) : reverse_value_map[row]}
       else
         result
@@ -30,20 +35,24 @@ module ActiveDataFrame
       set(from, M[values, typecode: block_type::TYPECODE].to_a.flatten)
     end
 
+    def clear(*ranges)
+      clear(ex)
+    end
+
     def column_map
-      data_frame_type.column_map(data_frame_type.singular_df_name)
+      data_frame_type.column_map(self.singular_df_name)
     end
 
     def column_name_map
-      data_frame_type.column_name_map(data_frame_type.singular_df_name)
+      data_frame_type.column_name_map(self.singular_df_name)
     end
 
     def reverse_column_map
-      data_frame_type.reverse_column_map(data_frame_type.singular_df_name)
+      data_frame_type.reverse_column_map(self.singular_df_name)
     end
 
     def database
-      @database ||= DatabaseConfig.for_types(block: block_type, df: data_frame_type)
+      @database ||= Database.for_types(block: block_type, df: data_frame_type)
     end
 
     def method_missing(name, *args, &block)
@@ -67,9 +76,6 @@ module ActiveDataFrame
 
     def range_size
       0
-    end
-
-    def flatten_ranges(ranges)
     end
 
     def unmap_ranges(ranges, map)
@@ -98,11 +104,12 @@ module ActiveDataFrame
     end
 
     def self.suppress_logs
-      # ActiveRecord::Base.logger, old_logger = nil,  ActiveRecord::Base.logger
-      # yield.tap do
-      #   ActiveRecord::Base.logger = old_logger
-      # end
-      yield
+      #TODO Make optional
+      return yield
+      ActiveRecord::Base.logger, old_logger = nil,  ActiveRecord::Base.logger
+      yield.tap do
+        ActiveRecord::Base.logger = old_logger
+      end
     end
 
     def iterate_bounds(all_bounds)

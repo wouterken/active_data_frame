@@ -50,7 +50,14 @@ module ActiveDataFrame
 
             # Provide memoised reference to DF row
             define_method singular_table_name do
-              (@data_frame_proxies ||= {})[singular_table_name] ||= Row.new(block_type, self.class, self, value_map: value_map)
+              (@data_frame_proxies ||= {})[singular_table_name] ||= Row.new(
+                block_type,
+                self.class,
+                self,
+                value_map: value_map,
+                singular_df_name: singular_table_name,
+                plural_df_name: table_name
+              )
             end
 
             # We provide our own inspect implementation which will include in the output
@@ -117,22 +124,15 @@ module ActiveDataFrame
       # Foo.where(baz: :boo).bars.sum[13..43]
       #
       define_method(table_name) do
-        Table.new(block_type, all, value_map: value_map)
-      end
-      #
-      # The name used to access the dataframe for a single row.
-      #
-      define_method :singular_df_name do
-        singular_table_name
+        Table.new(
+          block_type,
+          all,
+          value_map: value_map,
+          singular_df_name: singular_table_name,
+          plural_df_name: table_name
+        )
       end
 
-      #
-      # We allow for a different accessor method name when querying a data frame for an entire table instead of
-      # a single row
-      #
-      define_method :plural_df_name do
-        table_name
-      end
 
       #
       # A class level hash containing optionally defined column names for a data frame.
@@ -295,7 +295,6 @@ module ActiveDataFrame
       #
       #
       define_method("include_#{table_name}"){|*dimensions, unmap: true, scope: self.all, as: false|
-
         dim1 = dimensions[0]
         case dim1
         when Hash
@@ -313,7 +312,7 @@ module ActiveDataFrame
         end
 
         blocks_for_tables = scope.instance_eval{ @blocks_for_tables ||= {} }
-        included_blocks   = blocks_for_tables[singular_table_name]  ||= {}
+        included_blocks   = blocks_for_tables[block_type.table_name]  ||= {}
 
         dimensions.flatten.each.with_index(1) do |key, i|
           if unmap && column_map(singular_table_name)
@@ -332,7 +331,7 @@ module ActiveDataFrame
         query = "(SELECT * FROM #{self.table_name} " + blocks_for_tables.reduce('') do |aggregate, (for_table, blocks_for_table)|
           aggregate +
             blocks_for_table.reduce('') do |blocks_aggregate, (block_idx, blocks)|
-              blocks_table_name = block_type.table_name
+              blocks_table_name = for_table
               blocks_aggregate + " LEFT JOIN(SELECT #{blocks_table_name}.data_frame_type, #{blocks_table_name}.data_frame_id, " + blocks.map{|block| "#{blocks_table_name}.t#{block[:idx]} as \"#{block[:name]}\""}.join(', ') + " FROM #{blocks_table_name} "+
               " WHERE #{blocks_table_name}.period_index = #{block_idx}"+") b#{for_table}#{block_idx} ON b#{for_table}#{block_idx}.data_frame_type = '#{self.name}' AND b#{for_table}#{block_idx}.data_frame_id = #{self.table_name}.id"
             end

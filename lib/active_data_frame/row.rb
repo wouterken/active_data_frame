@@ -3,8 +3,8 @@ module ActiveDataFrame
 
     attr_accessor :instance
 
-    def initialize(block_type, data_frame_type, instance, value_map: nil)
-      super(block_type, data_frame_type, value_map: value_map)
+    def initialize(block_type, data_frame_type, instance, value_map: nil, singular_df_name: '', plural_df_name: '')
+      super(block_type, data_frame_type, value_map: value_map, singular_df_name: singular_df_name, plural_df_name: plural_df_name)
       self.instance = instance
     end
 
@@ -16,25 +16,30 @@ module ActiveDataFrame
       to     = (from + values.length) - 1
       bounds = get_bounds(from, to)
 
-      # self.class.suppress_logs do
-        new_blocks = Hash.new do |h, k|
-          h[k] = [[0] * block_type::BLOCK_SIZE]
-        end
+      new_blocks = Hash.new do |h, k|
+        h[k] = [[0] * block_type::BLOCK_SIZE]
+      end
 
-        existing = blocks_between([bounds]).pluck(:data_frame_id, :period_index, *block_type::COLUMNS).map do |id, period_index, *block_values|
-          [period_index, [block_values, id]]
-        end.to_h
+      deleted_indices = []
 
-        iterate_bounds([bounds]) do |index, left, right, cursor, size|
-          chunk = values[cursor...cursor + size]
+      existing = blocks_between([bounds]).pluck(:data_frame_id, :period_index, *block_type::COLUMNS).map do |id, period_index, *block_values|
+        [period_index, [block_values, id]]
+      end.to_h
+
+      iterate_bounds([bounds]) do |index, left, right, cursor, size|
+        chunk = values[cursor...cursor + size]
+        if size == block_type::BLOCK_SIZE && chunk.all?(&:zero?)
+          deleted_indices << index
+        else
           block = existing[index] || new_blocks[index]
           block.first[left..right] = chunk.to_a
         end
+      end
 
-        database.bulk_update(existing) unless existing.size.zero?
-        database.bulk_insert(new_blocks, instance) unless new_blocks.size.zero?
-        values
-      # end
+      database.bulk_delete(self.id, deleted_indices) unless deleted_indices.size.zero?
+      database.bulk_update(existing)                 unless existing.size.zero?
+      database.bulk_insert(new_blocks, instance)     unless new_blocks.size.zero?
+      values
     end
 
     def get(ranges)

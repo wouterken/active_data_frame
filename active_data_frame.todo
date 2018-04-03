@@ -1,3 +1,9 @@
+Priorities:
+  ☐ Ensure delete/clear works
+  ☐ rmatrix tests
+  ☐ Update README.md
+  ☐ Use MMAP of status/enums
+  ☐ Support SQLite + MySQL, MonetDB
  ✔ Generator creates A migration and data_frame and block classes. Block/DataFrame classes have a type, a period unit and a period length @done (17-01-12 10:29)
  ✔ Type is: @done (17-01-12 10:29)
    ✔ Bit @done (17-01-12 10:29)
@@ -45,23 +51,10 @@
 ✔ Finish RMatrix @done (17-03-02 09:01)
 
 RMatrix:
-   ☐ Ensure assignment works
-   ☐ Raw is simply a copy of self without mappings
+   ✔ Ensure assignment works @done (18-04-03 18:58)
+   ✔ Raw is simply a copy of self without mappings @done (18-04-03 18:58)
 ActiveDataFrame:
-    ☐ dimensions_minimum
-    ☐ dimensions_maximum
-    ☐ dimensions_sum
-    ☐ dimensions_average
-ActiveRecordMonetDBAdapter:
-   ☐ Work on support for MonetDB
-
- Utilities:
-   ☐ KMeans clustering and DBScan built in to multi-d array
-   ☐ Build generic Merge/Cache structure which will either cache infinite columns or rows
-   - class Unit
-       - df_cache :all_loads, ::loads,  direction: :row
-   - end
-
-Ruby dataframe library inspiration:
-   - Integration with Nyaplot
-   - Integration with Statsample
+    ✔ dimensions_minimum @done (18-04-03 18:58)
+    ✔ dimensions_maximum @done (18-04-03 18:58)
+    ✔ dimensions_sum @done (18-04-03 18:58)
+    ✔ dimensions_average @done (18-04-03 18:58)

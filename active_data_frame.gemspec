@@ -23,6 +23,10 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rake", "~> 10.0"
   spec.add_development_dependency "pry-byebug", "~> 3.4.0", '>= 3.4.0'
   spec.add_development_dependency 'pry', '~> 0.10.2', '>= 0.10.0'
-  spec.add_runtime_dependency     'activerecord', '~> 5.0.0'
+  spec.add_development_dependency 'pg'
+  spec.add_development_dependency 'minitest', '~>5.11'
+  spec.add_development_dependency 'minitest-reporters', '~> 1.1', '>= 1.1.0'
+  spec.add_development_dependency 'minitest-around', '0.4.1'
+  spec.add_runtime_dependency     'activerecord', '~> 5.0'
   spec.add_runtime_dependency     'rmatrix', '~> 0.1.10', '>=0.1.10'
 end
