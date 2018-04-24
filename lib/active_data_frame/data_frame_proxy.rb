@@ -22,8 +22,7 @@ module ActiveDataFrame
     def [](*ranges)
       result = get(extract_ranges(ranges))
       if @value_map
-        # TODO Multi-dimensions #map would be nice
-        result.to_a.map{|row| row.kind_of?(Array) ? row.map(&reverse_value_map.method(:[])) : reverse_value_map[row]}
+        result.map{|row| reverse_value_map[row]}
       else
         result
       end
@@ -36,7 +35,9 @@ module ActiveDataFrame
     end
 
     def clear(*ranges)
-      clear(ex)
+      extract_ranges(ranges).each do |r|
+        set(r.first, M.blank(columns: r.last - r.first, typecode: block_type::TYPECODE))
+      end
     end
 
     def column_map
@@ -104,8 +105,7 @@ module ActiveDataFrame
     end
 
     def self.suppress_logs
-      #TODO Make optional
-      return yield
+      return yield unless ActiveDataFrame.suppress_logs
       ActiveRecord::Base.logger, old_logger = nil,  ActiveRecord::Base.logger
       yield.tap do
         ActiveRecord::Base.logger = old_logger

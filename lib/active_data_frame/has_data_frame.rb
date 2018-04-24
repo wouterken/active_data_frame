@@ -62,17 +62,18 @@ module ActiveDataFrame
 
             # We provide our own inspect implementation which will include in the output
             # selected dataframe attributes that do not reside on the parent table
-            define_method :inspect do
-              inspection = "not initialized"
-              if defined?(@attributes) && @attributes
-                 inspection = @attributes.keys.collect { |name|
-                   if has_attribute?(name)
-                     "#{name}: #{attribute_for_inspect(name)}"
-                   end
-                 }.compact.join(", ")
-              end
-              "<#{self.class} #{inspection}>"
+          end
+
+          def inspect
+            inspection = "not initialized"
+            if defined?(@attributes) && @attributes
+               inspection = @attributes.keys.collect { |name|
+                 if has_attribute?(name)
+                   "#{name}: #{attribute_for_inspect(name)}"
+                 end
+               }.compact.join(", ")
             end
+            "<#{self.class} #{inspection}>"
           end
         end
       end

@@ -57,7 +57,7 @@ class DataFrameProxyTest < TransactionalTest
 
   def test_it_exposes_named_columns_through_method_missing
     Airport.status.column_name_map.each do |column|
-      assert_equal Airport.first.status.send(column), [:normal]
+      assert_equal Airport.first.status.send(column), [[:normal]]
     end
   end
 

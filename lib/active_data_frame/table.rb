@@ -78,7 +78,7 @@ module ActiveDataFrame
             "CASE WHEN #{case_str} THEN #{col} ELSE NULL END"
           end
         end
-      end
+      end.map(&Arel.method(:sql))
     end
 
     def get(ranges)
@@ -210,7 +210,7 @@ module ActiveDataFrame
           .pluck(
             :period_index,
             *block_type::COLUMNS.map do |cl|
-              "#{agg}(#{cl}) as #{cl}"
+              Arel.sql("#{agg}(#{cl}) as #{cl}")
             end
           )
           .map{|pi, *values| [pi, values]}.to_h

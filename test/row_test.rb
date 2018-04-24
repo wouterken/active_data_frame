@@ -45,6 +45,21 @@ class RowTest < TransactionalTest
     end
   end
 
+  def test_it_supports_deleting_values
+    blocks_before = Blocks::ArrivalBlock.count
+
+    date = '3001-01-01'
+    Airport.last.arrivals[date] = [1100,1300, 900]
+    # We've added new blocks
+    assert blocks_before < Blocks::ArrivalBlock.count
+    assert_equal Airport.last.arrivals[date...'3001-01-01 03:00'], [1100, 1300, 900]
+
+    # We've removed the new blocks
+    Airport.last.arrivals.clear(date...'3001-01-01 03:00')
+    assert_equal Airport.last.arrivals[date...'3001-01-01 03:00'], [0, 0, 0]
+    assert_equal blocks_before, Blocks::ArrivalBlock.count
+  end
+
   def test_it_supports_getting_nonexistent_values
     no_data_date  = '3001-01-01'
     no_data_date2 = '3002-01-01'
@@ -64,7 +79,34 @@ class RowTest < TransactionalTest
     assert_equal Airport.first.departures[no_data_date...no_data_date2].length, 8760
     assert_equal Airport.first.departures[no_data_date2].to_f, 0
 
-    assert_equal Airport.first.status[1_000_000], [:normal]
-    assert_equal Airport.first.status[1_000_000..1_000_001], [:normal, :normal]
+    assert_equal Airport.first.status[1_000_000], [[:normal]]
+    assert_equal Airport.first.status[1_000_000..1_000_001], [[:normal, :normal]]
   end
+
+  def test_fuzzing
+    length = 1_000
+    iterations = 1_000
+    mirror = length.times.map{|i| i }
+    Blocks::ArrivalBlock.delete_all
+    airport = Airport.first
+    airport.arrivals[0] = mirror
+    iterations.times do |i|
+      assert_equal airport.arrivals[0...length], mirror
+      from = Random.rand(1...length)
+      to   = Random.rand(from.succ..length)
+      action = [:set, :delete].sample
+      case action
+      when :set
+        data =  M.blank(columns: to - from).random!.*(100).to_type(M::Typecode::INT)
+        mirror[from...to] = data.to_a
+        airport.arrivals[from] = data
+      when :delete
+        mirror[from...to] = [0] * (to - from)
+        airport.arrivals.clear(from...to)
+      end
+    end
+    airport.arrivals.clear(0...length)
+    assert_equal Blocks::ArrivalBlock.count, 0
+  end
+
 end

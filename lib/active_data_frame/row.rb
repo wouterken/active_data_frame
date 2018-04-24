@@ -28,15 +28,17 @@ module ActiveDataFrame
 
       iterate_bounds([bounds]) do |index, left, right, cursor, size|
         chunk = values[cursor...cursor + size]
-        if size == block_type::BLOCK_SIZE && chunk.all?(&:zero?)
-          deleted_indices << index
-        else
-          block = existing[index] || new_blocks[index]
+        if existing[index]
+          block = existing[index]
           block.first[left..right] = chunk.to_a
+          deleted_indices << index if block.first.all?(&:zero?)
+        elsif chunk.any?(&:nonzero?)
+          new_blocks[index].first[left..right] = chunk.to_a
         end
       end
 
-      database.bulk_delete(self.id, deleted_indices) unless deleted_indices.size.zero?
+
+      database.bulk_delete(self.instance.id, deleted_indices) unless deleted_indices.size.zero?
       database.bulk_update(existing)                 unless existing.size.zero?
       database.bulk_insert(new_blocks, instance)     unless new_blocks.size.zero?
       values

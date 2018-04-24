@@ -19,7 +19,7 @@ module HasArrivals
   include ActiveDataFrame::HasDataFrame('arrivals', Blocks::ArrivalBlock)
   module ColumnMaps
     def self.included(base)
-      base.arrivals_column_map Hash.new{|hash, time| ((time.to_time - Time.at(0)) / 1.hour).to_i}
+      base.arrivals_column_map Hash.new{|hash, time| ((time.to_time - Time.at(0)) / 1.hour).to_i rescue time.to_i }
     end
   end
 end

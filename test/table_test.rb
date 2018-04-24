@@ -23,16 +23,33 @@ class TableTest < TransactionalTest
   def test_it_supports_getting_values
     assert_equal Airport.arrivals['2001-01-01'].length, Airport.count
     assert_equal Airport.arrivals['2001-01-01'..'2001-01-01 01:00'].length, Airport.count * 2
-    assert_equal Airport.status.control_tower.uniq, [:normal]
+    assert_equal Airport.status.control_tower.uniq, [[:normal]]
 
     Airport.where(country: 'US').status[:control_tower] = [:critical]
-    assert_equal Airport.status.control_tower.uniq.sort, [:normal, :critical].sort
-    assert_equal Airport.where(country: 'US').status.control_tower.uniq.sort, [:critical]
+    assert_equal Airport.status.control_tower.uniq.sort, [[:critical],[:normal]]
+    assert_equal Airport.where(country: 'US').status.control_tower.uniq.sort, [[:critical]]
+  end
+
+  def test_it_supports_deleting_values
+    blocks_before = Blocks::ArrivalBlock.count
+
+    date = '3001-01-01'
+    Airport.arrivals[date] = [1100,1300, 900]
+    # We've added new blocks
+    assert blocks_before < Blocks::ArrivalBlock.count
+    assert_equal Airport.arrivals.avg[date...'3001-01-01 03:00'], [1100, 1300, 900]
+    assert_equal Airport.arrivals.sum[date...'3001-01-01 03:00'], [1100, 1300, 900].map{|x| x * Airport.count}
+
+    # We've removed the new blocks
+    Airport.arrivals.clear(date...'3001-01-01 03:00')
+    assert_equal Airport.arrivals.max[date...'3001-01-01 03:00'], [0, 0, 0]
+    assert_equal Airport.arrivals.min[date...'3001-01-01 03:00'], [0, 0, 0]
+    assert_equal blocks_before, Blocks::ArrivalBlock.count
   end
 
   def test_it_supports_getting_nonexistent_values
     non_existent_date = '3001-01-01'
-    assert_equal Airport.status[5000], [:normal] * Airport.count # Normal == 0
+    assert_equal Airport.status[5000], [[:normal]] * Airport.count # Normal == 0
     assert_equal Airport.temperature[non_existent_date].T, [0] * Airport.count
   end
 

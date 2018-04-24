@@ -50,26 +50,34 @@ module ActiveDataFrame
     # Update block data for all blocks in a single call
     ##
     def bulk_update(existing)
-      case ActiveRecord::Base.connection_config[:adapter]
-      when 'postgresql'.freeze
-        # Fast bulk update
-        updates = ''
-        existing.each do |period_index, (values, df_id)|
-          updates <<  "(#{df_id}, #{period_index}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
+      ActiveDataFrame::DataFrameProxy.suppress_logs do
+        case ActiveRecord::Base.connection_config[:adapter]
+        when 'postgresql'.freeze
+          # Fast bulk update
+          updates = ''
+          existing.each do |period_index, (values, df_id)|
+            updates <<  "(#{df_id}, #{period_index}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
+          end
+          perform_update(updates)
+        else
+          ids = existing.map {|_, (_, id)| id}
+          updates = block_type::COLUMNS.map.with_index do |column, column_idx|
+            [column, "CASE period_index\n#{existing.map{|period_index, (values, _)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
+          end.to_h
+          update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
+          Database.execute("UPDATE #{block_type.table_name} SET #{update_statement} WHERE
+            #{block_type.table_name}.data_frame_id IN (#{ids.join(',')})
+            AND #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
+            AND #{block_type.table_name}.period_index IN (#{existing.keys.join(', ')});
+            "
+          )
         end
-        perform_update(updates)
-      else
-        ids = existing.map {|_, (_, id)| id}
-        updates = block_type::COLUMNS.map.with_index do |column, column_idx|
-          [column, "CASE period_index\n#{existing.map{|period_index, (values, _)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
-        end.to_h
-        update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
-        Database.execute("UPDATE #{block_type.table_name} SET #{update_statement} WHERE
-          #{block_type.table_name}.data_frame_id IN (#{ids.join(',')})
-          AND #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
-          AND #{block_type.table_name}.period_index IN (#{existing.keys.join(', ')});
-          "
-        )
+      end
+    end
+
+    def bulk_delete(id, indices)
+      ActiveDataFrame::DataFrameProxy.suppress_logs do
+        block_type.where(data_frame_id: id, period_index: indices).delete_all
       end
     end
 
@@ -77,39 +85,41 @@ module ActiveDataFrame
     # Insert block data for all blocks in a single call
     ##
     def bulk_insert(new_blocks, instance)
-      inserts = ''
-      new_blocks.each do |period_index, (values)|
-        inserts << \
-        case ActiveRecord::Base.connection_config[:adapter]
-        when 'postgresql', 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
-        else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
+      ActiveDataFrame::DataFrameProxy.suppress_logs do
+        inserts = ''
+        new_blocks.each do |period_index, (values)|
+          inserts << \
+          case ActiveRecord::Base.connection_config[:adapter]
+          when 'postgresql', 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
+          else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
+          end
         end
+        perform_insert(inserts)
       end
-      perform_insert(inserts)
-    end
-
-    def bulk_delete(blocks)
-      binding.pry
     end
 
     def perform_update(updates)
-      Database.execute(
-        <<-SQL
-        UPDATE #{block_type.table_name}
-          SET #{block_type::COLUMNS.map{|col| "#{col} = t.#{col}" }.join(", ")}
-          FROM(
-          VALUES #{updates[0..-2]}) as t(data_frame_id, period_index, #{block_type::COLUMNS.join(',')})
-          WHERE #{block_type.table_name}.data_frame_id = t.data_frame_id
-          AND #{block_type.table_name}.period_index = t.period_index
-          AND #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
-        SQL
-      )
-      true
+      ActiveDataFrame::DataFrameProxy.suppress_logs do
+        Database.execute(
+          <<-SQL
+          UPDATE #{block_type.table_name}
+            SET #{block_type::COLUMNS.map{|col| "#{col} = t.#{col}" }.join(", ")}
+            FROM(
+            VALUES #{updates[0..-2]}) as t(data_frame_id, period_index, #{block_type::COLUMNS.join(',')})
+            WHERE #{block_type.table_name}.data_frame_id = t.data_frame_id
+            AND #{block_type.table_name}.period_index = t.period_index
+            AND #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
+          SQL
+        )
+        true
+      end
     end
 
     def perform_insert(inserts)
-      sql = "INSERT INTO #{block_type.table_name} (#{block_type::COLUMNS.join(',')}, data_frame_id, period_index, data_frame_type) VALUES #{inserts[0..-2]}"
-      Database.execute sql
+      ActiveDataFrame::DataFrameProxy.suppress_logs do
+        sql = "INSERT INTO #{block_type.table_name} (#{block_type::COLUMNS.join(',')}, data_frame_id, period_index, data_frame_type) VALUES #{inserts[0..-2]}"
+        Database.execute sql
+      end
     end
   end
 end
