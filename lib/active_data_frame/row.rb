@@ -21,7 +21,6 @@ module ActiveDataFrame
       end
 
       deleted_indices = []
-
       existing = blocks_between([bounds]).pluck(:data_frame_id, :period_index, *block_type::COLUMNS).map do |id, period_index, *block_values|
         [period_index, [block_values, id]]
       end.to_h
@@ -31,7 +30,10 @@ module ActiveDataFrame
         if existing[index]
           block = existing[index]
           block.first[left..right] = chunk.to_a
-          deleted_indices << index if block.first.all?(&:zero?)
+          if block.first.all?(&:zero?)
+            deleted_indices << index
+            existing.delete(index)
+          end
         elsif chunk.any?(&:nonzero?)
           new_blocks[index].first[left..right] = chunk.to_a
         end

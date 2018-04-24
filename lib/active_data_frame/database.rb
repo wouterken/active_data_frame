@@ -69,6 +69,24 @@ module ActiveDataFrame
             updates <<  "(#{df_id}, #{period_index}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
           end
           perform_update(updates)
+
+        when 'mysql2'.freeze
+          # Fast bulk update
+          updates, on_duplicate = "", ""
+          existing.each do |period_index, (values, df_id)|
+            updates << "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
+          end
+          on_duplicate = block_type::COLUMNS.map do |cname|
+            "#{cname}=VALUES(#{cname})"
+          end.join(", ")
+          stmt = <<-SQL
+INSERT INTO #{block_type.table_name} (#{block_type::COLUMNS.join(',')},data_frame_id,period_index,data_frame_type)
+VALUES #{updates[0..-2]}
+ON DUPLICATE KEY UPDATE #{on_duplicate}
+SQL
+          ActiveDataFrame::DataFrameProxy.suppress_logs do
+            Database.execute(stmt)
+          end
         else
           ids = existing.map {|_, (_, id)| id}
           updates = block_type::COLUMNS.map.with_index do |column, column_idx|
