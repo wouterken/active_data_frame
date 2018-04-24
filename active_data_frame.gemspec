@@ -11,6 +11,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = 'An active data frame helper'
   spec.description   = 'An active data frame helper'
+  spec.homepage      = "https://github.com/wouterken/active_data_frame"
 
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
     f.match(%r{^(test|spec|features)/})
@@ -24,6 +25,8 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "pry-byebug", "~> 3.4.0", '>= 3.4.0'
   spec.add_development_dependency 'pry', '~> 0.10.2', '>= 0.10.0'
   spec.add_development_dependency 'pg'
+  spec.add_development_dependency 'sqlite3'
+  spec.add_development_dependency 'mysql2'
   spec.add_development_dependency 'minitest', '~>5.11'
   spec.add_development_dependency 'minitest-reporters', '~> 1.1', '>= 1.1.0'
   spec.add_development_dependency 'minitest-around', '0.4.1'

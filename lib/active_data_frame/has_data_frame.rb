@@ -333,8 +333,8 @@ module ActiveDataFrame
           aggregate +
             blocks_for_table.reduce('') do |blocks_aggregate, (block_idx, blocks)|
               blocks_table_name = for_table
-              blocks_aggregate + " LEFT JOIN(SELECT #{blocks_table_name}.data_frame_type, #{blocks_table_name}.data_frame_id, " + blocks.map{|block| "#{blocks_table_name}.t#{block[:idx]} as \"#{block[:name]}\""}.join(', ') + " FROM #{blocks_table_name} "+
-              " WHERE #{blocks_table_name}.period_index = #{block_idx}"+") b#{for_table}#{block_idx} ON b#{for_table}#{block_idx}.data_frame_type = '#{self.name}' AND b#{for_table}#{block_idx}.data_frame_id = #{self.table_name}.id"
+              blocks_aggregate + " LEFT JOIN(SELECT #{blocks_table_name}.data_frame_type as b#{for_table}#{block_idx}_data_frame_type, #{blocks_table_name}.data_frame_id b#{for_table}#{block_idx}_data_frame_id, " + blocks.map{|block| "#{blocks_table_name}.t#{block[:idx]} as \"#{block[:name]}\""}.join(', ') + " FROM #{blocks_table_name} "+
+              " WHERE #{blocks_table_name}.period_index = #{block_idx}"+") b#{for_table}#{block_idx} ON b#{for_table}#{block_idx}.b#{for_table}#{block_idx}_data_frame_type = '#{self.name}' AND b#{for_table}#{block_idx}.b#{for_table}#{block_idx}_data_frame_id = #{self.table_name}.id"
             end
         end + ") as #{self.table_name}"
         scope.from(query)

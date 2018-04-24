@@ -1,8 +1,12 @@
 # ActiveDataFrame
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/active_data_frame`. To experiment with that code, run `bin/console` for an interactive prompt.
+ActiveDataFrame allows efficient writing, reading, and analytical queries on large tables of numerical data. You can think of it as a persistent NumPy or NArray with good support for slicing
+and aggregates without needing to load the entire dataset into memory.
 
-TODO: Delete this and the text above, and describe your gem
+The library depends on ActiveRecord and currently supports the following relational databases:
+* PostgreSQL
+* MySQL
+* SQLite
 
 ## Installation
 

@@ -17,18 +17,11 @@ Airport.create!(
   CSV.foreach(File.expand_path('../codes.csv', __FILE__), headers: true).map(&:to_hash)
 )
 
-
-Airport.find_in_batches(batch_size: 20).with_index do |batch, bi|
-  batch.each_slice(5).map do |slice|
-    Thread.new do
-      ActiveDataFrame::Database.batch do
-        slice.each do |a|
-          a.departures['2001-01-01']  = departures[]
-          a.arrivals['2001-01-01']    = arrivals[]
-          a.temperature['2001-01-01'] = temperature[]
-          a.status[0]                 = status[]
-        end
-      end
-    end
-  end.map(&:join)
+Airport.find_each do |a|
+  ActiveDataFrame::Database.batch do
+    a.departures['2001-01-01']  = departures[]
+    a.arrivals['2001-01-01']    = arrivals[]
+    a.temperature['2001-01-01'] = temperature[]
+    a.status[0]                 = status[]
+  end
 end

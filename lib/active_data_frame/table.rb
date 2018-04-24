@@ -55,7 +55,7 @@ module ActiveDataFrame
 
         if aggregation_function
           case col_cases.length
-          when 0 then "NULL::float as #{col}"
+          when 0 then "0.0 as #{col}"
           else
             case_str = col_cases.map do |match|
               case
@@ -98,7 +98,6 @@ module ActiveDataFrame
           all_bounds,
           block_scope: data_frame_type.unscoped
                                     .joins("LEFT JOIN #{block_type.table_name} ON #{data_frame_type.table_name}.id = #{block_type.table_name}.data_frame_id")
-                                    .joins("RIGHT JOIN (#{data_frame_type.select(:id).to_sql}) as ref ON ref.id = #{block_type.table_name}.data_frame_id")
 
         ).where(
           block_type.table_name => {data_frame_type: data_frame_type.name }
@@ -108,8 +107,13 @@ module ActiveDataFrame
         ActiveRecord::Base.connection.execute(as_sql)
       end
 
-      res.each_row do |pi, data_frame_id, *values|
-        existing_blocks[pi][data_frame_id] = values
+      case ActiveRecord::Base.connection_config[:adapter]
+      when 'postgresql'.freeze
+        res.each_row {|pi, data_frame_id, *values| existing_blocks[pi][data_frame_id] = values }
+      when 'mysql2'.freeze
+        res.each {|pi, data_frame_id, *values| existing_blocks[pi][data_frame_id] = values }
+      when 'sqlite3'.freeze
+        res.map(&:values).each {|pi, data_frame_id, *values| existing_blocks[pi][data_frame_id] = values }
       end
 
       result = M.blank(typecode: block_type::TYPECODE, columns: all_bounds.map(&:length).sum, rows: index_map.size)

@@ -9,13 +9,23 @@ module ActiveDataFrame
       Thread.current[:active_data_frame_batching] = !!value
     end
 
-    # Not thread safe!
     def self.execute(sql)
       if ActiveDataFrame::Database.batching
         Thread.current[:batch] << sql << ?;
       else
-        ActiveRecord::Base.transaction do
-          ActiveRecord::Base.connection.execute sql
+        unless sql.empty?
+          ActiveRecord::Base.transaction do
+            case ActiveRecord::Base.connection_config[:adapter]
+            when 'sqlite3'.freeze
+              ActiveRecord::Base.connection.raw_connection.execute_batch sql
+            when 'mysql2'
+              sql.split(';').reject{|x| x.strip.empty?}.each do |stmt|
+                ActiveRecord::Base.connection.execute(stmt)
+              end
+            else
+              ActiveRecord::Base.connection.execute(sql)
+            end
+          end
         end
       end
     end

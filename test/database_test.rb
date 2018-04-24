@@ -46,6 +46,15 @@ class DatabaseTest < TransactionalTest
   end
 
   def test_it_supports_bulk_delete
-    #binding.pry
+    date    = '2001-01-01'
+    airport = Airport.first
+    Blocks::ArrivalBlock.where(data_frame_id: Airport.first.id).delete_all
+
+    arrival_data = (M.blank(columns: 10_000).random! * 100).to_type(M::Typecode::INT)
+    airport.arrivals[date] = arrival_data
+    refute_equal Blocks::ArrivalBlock.where(data_frame_id: Airport.first.id).count, 0
+
+    airport.arrivals[date] = M.blank(columns: 10_000)
+    assert_equal Blocks::ArrivalBlock.where(data_frame_id: Airport.first.id).count, 0
   end
 end

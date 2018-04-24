@@ -89,30 +89,30 @@ class CreateTemperatures < ActiveRecord::Migration[5.0]
       t.integer :data_frame_id, index: true
       t.string  :data_frame_type, index: true
       t.integer :period_index, index: true
-      t.float :t1,  precision: 53
-      t.float :t2,  precision: 53
-      t.float :t3,  precision: 53
-      t.float :t4,  precision: 53
-      t.float :t5,  precision: 53
-      t.float :t6,  precision: 53
-      t.float :t7,  precision: 53
-      t.float :t8,  precision: 53
-      t.float :t9,  precision: 53
-      t.float :t10, precision: 53
-      t.float :t11, precision: 53
-      t.float :t12, precision: 53
-      t.float :t13, precision: 53
-      t.float :t14, precision: 53
-      t.float :t15, precision: 53
-      t.float :t16, precision: 53
-      t.float :t17, precision: 53
-      t.float :t18, precision: 53
-      t.float :t19, precision: 53
-      t.float :t20, precision: 53
-      t.float :t21, precision: 53
-      t.float :t22, precision: 53
-      t.float :t23, precision: 53
-      t.float :t24, precision: 53
+      t.float :t1,  precision: 53, limit: 53
+      t.float :t2,  precision: 53, limit: 53
+      t.float :t3,  precision: 53, limit: 53
+      t.float :t4,  precision: 53, limit: 53
+      t.float :t5,  precision: 53, limit: 53
+      t.float :t6,  precision: 53, limit: 53
+      t.float :t7,  precision: 53, limit: 53
+      t.float :t8,  precision: 53, limit: 53
+      t.float :t9,  precision: 53, limit: 53
+      t.float :t10, precision: 53, limit: 53
+      t.float :t11, precision: 53, limit: 53
+      t.float :t12, precision: 53, limit: 53
+      t.float :t13, precision: 53, limit: 53
+      t.float :t14, precision: 53, limit: 53
+      t.float :t15, precision: 53, limit: 53
+      t.float :t16, precision: 53, limit: 53
+      t.float :t17, precision: 53, limit: 53
+      t.float :t18, precision: 53, limit: 53
+      t.float :t19, precision: 53, limit: 53
+      t.float :t20, precision: 53, limit: 53
+      t.float :t21, precision: 53, limit: 53
+      t.float :t22, precision: 53, limit: 53
+      t.float :t23, precision: 53, limit: 53
+      t.float :t24, precision: 53, limit: 53
     end
 
     add_index :temperature_blocks, [:data_frame_id , :period_index, :data_frame_type], :unique => true, name: 'index_temperature_blocks_on_type_id_and_index'
