@@ -96,9 +96,9 @@ module ActiveDataFrame
         ids = data_frame_type.pluck(:id)
         as_sql = blocks_between(
           all_bounds,
-          block_scope: data_frame_type.unscoped
-                                    .joins("LEFT JOIN #{block_type.table_name} ON #{data_frame_type.table_name}.id = #{block_type.table_name}.data_frame_id")
-
+          block_scope: data_frame_type.unscoped.where(
+            "#{data_frame_type.table_name}.id IN (SELECT id FROM (#{data_frame_type.select(:id).to_sql}) airport_ids)"
+          ).joins("LEFT JOIN #{block_type.table_name} ON #{data_frame_type.table_name}.id = #{block_type.table_name}.data_frame_id")
         ).where(
           block_type.table_name => {data_frame_type: data_frame_type.name }
         ).select(:period_index, :data_frame_id, *column_cases(case_map)).to_sql

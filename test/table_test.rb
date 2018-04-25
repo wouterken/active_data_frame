@@ -115,4 +115,12 @@ class TableTest < TransactionalTest
     assert_equal Airport.temperature.idx_where_sum_lte('2001-01-01'...'2002-01-01', tenth_smallest).length, 10
   end
 
+  def test_it_doesnt_forward_scope_to_joined_tables
+    # We want to ensure that the limit (20) applies to the airports,
+    # and not to the total number of joined rows of airport and block rows.
+    # If as expected we should see a large sum (> 2 million) if the limit
+    # is applied to the joined rows this test will fail
+    assert Airport.limit(20).temperature['2001-01-01'...'2002-01-01'].sum > 2_000_000
+  end
+
 end
