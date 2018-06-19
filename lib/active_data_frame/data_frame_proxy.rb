@@ -57,8 +57,12 @@ module ActiveDataFrame
     end
 
     def method_missing(name, *args, &block)
+      if name.to_s.ends_with?(?=)
+        is_assignment = true
+        name = name.to_s.gsub(/=$/,'').to_sym
+      end
       if column_name_map && column_map[name]
-        self[name]
+        is_assignment ? self.[]=(name, *args) : self[name]
       else
         super
       end

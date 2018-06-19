@@ -2,8 +2,9 @@ Priorities:
   ☐ Ensure delete/clear works
   ☐ rmatrix tests
   ☐ Update README.md
-  ☐ Use MMAP of status/enums
   ☐ Support SQLite + MySQL, MonetDB
+
+  ✔ Use MMAP of status/enums @done (18-04-03 19:21)
  ✔ Generator creates A migration and data_frame and block classes. Block/DataFrame classes have a type, a period unit and a period length @done (17-01-12 10:29)
  ✔ Type is: @done (17-01-12 10:29)
    ✔ Bit @done (17-01-12 10:29)

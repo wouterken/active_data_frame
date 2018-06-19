@@ -51,7 +51,9 @@ module ActiveDataFrame
         get_bounds(range.first, range.exclude_end? ? range.end - 1 : range.end, index)
       end
 
-      existing = blocks_between(all_bounds).pluck(:period_index, *block_type::COLUMNS).map{|pi, *values| [pi, values]}.to_h
+      existing = self.class.suppress_logs{
+        blocks_between(all_bounds).pluck(:period_index, *block_type::COLUMNS).map{|pi, *values| [pi, values]}.to_h
+      }
       result   = M.blank(typecode: block_type::TYPECODE, columns: all_bounds.map(&:length).sum)
 
       iterate_bounds(all_bounds) do |index, left, right, cursor, size|

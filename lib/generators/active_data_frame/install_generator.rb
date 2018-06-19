@@ -2,13 +2,11 @@ require 'rails/generators/active_record'
 
 module ActiveDataFrame
   class InstallGenerator < ActiveRecord::Generators::Base
-    desc "Generates a new data_frame type"
-
     STREAM_TYPES = %w(bit byte integer long float double)
     # Commandline options can be defined here using Thor-like options:
-    argument :type,    :type => :string, :default => 'float', :desc => "DataFrame type. One of(#{STREAM_TYPES*" ,"})"
-    argument :columns, :type => :numeric, :default => 512, :desc => "Number of columns"
-    argument :inject,     type: :array, default: []
+    argument :type,     type: :string,  default: 'float', desc: "DataFrame type. One of(#{STREAM_TYPES*" ,"})"
+    argument :columns,  type: :numeric, default: 512,     desc: "Number of columns"
+    argument :inject,   type: :array,   default: []
 
     def self.source_root
       @source_root ||= File.join(File.dirname(__FILE__), 'templates')

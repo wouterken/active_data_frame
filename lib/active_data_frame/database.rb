@@ -15,15 +15,17 @@ module ActiveDataFrame
       else
         unless sql.empty?
           ActiveRecord::Base.transaction do
-            case ActiveRecord::Base.connection_config[:adapter]
-            when 'sqlite3'.freeze
-              ActiveRecord::Base.connection.raw_connection.execute_batch sql
-            when 'mysql2'
-              sql.split(';').reject{|x| x.strip.empty?}.each do |stmt|
-                ActiveRecord::Base.connection.execute(stmt)
+            ActiveDataFrame::DataFrameProxy.suppress_logs do
+              case ActiveRecord::Base.connection_config[:adapter]
+              when 'sqlite3'.freeze
+                ActiveRecord::Base.connection.raw_connection.execute_batch sql
+              when 'mysql2'
+                sql.split(';').reject{|x| x.strip.empty?}.each do |stmt|
+                  ActiveRecord::Base.connection.execute(stmt)
+                end
+              else
+                ActiveRecord::Base.connection.execute(sql)
               end
-            else
-              ActiveRecord::Base.connection.execute(sql)
             end
           end
         end
@@ -60,74 +62,16 @@ module ActiveDataFrame
     # Update block data for all blocks in a single call
     ##
     def bulk_update(existing)
-      ActiveDataFrame::DataFrameProxy.suppress_logs do
-        case ActiveRecord::Base.connection_config[:adapter]
-        when 'postgresql'.freeze
-          # Fast bulk update
-          updates = ''
-          existing.each do |period_index, (values, df_id)|
-            updates <<  "(#{df_id}, #{period_index}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
-          end
-          perform_update(updates)
-
-        when 'mysql2'.freeze
-          # Fast bulk update
-          updates, on_duplicate = "", ""
-          existing.each do |period_index, (values, df_id)|
-            updates << "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
-          end
-          on_duplicate = block_type::COLUMNS.map do |cname|
-            "#{cname}=VALUES(#{cname})"
-          end.join(", ")
-          stmt = <<-SQL
-INSERT INTO #{block_type.table_name} (#{block_type::COLUMNS.join(',')},data_frame_id,period_index,data_frame_type)
-VALUES #{updates[0..-2]}
-ON DUPLICATE KEY UPDATE #{on_duplicate}
-SQL
-          ActiveDataFrame::DataFrameProxy.suppress_logs do
-            Database.execute(stmt)
-          end
-        else
-          ids = existing.map {|_, (_, id)| id}
-          updates = block_type::COLUMNS.map.with_index do |column, column_idx|
-            [column, "CASE period_index\n#{existing.map{|period_index, (values, _)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
-          end.to_h
-          update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
-          Database.execute("UPDATE #{block_type.table_name} SET #{update_statement} WHERE
-            #{block_type.table_name}.data_frame_id IN (#{ids.join(',')})
-            AND #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
-            AND #{block_type.table_name}.period_index IN (#{existing.keys.join(', ')});
-            "
-          )
+      case ActiveRecord::Base.connection_config[:adapter]
+      when 'postgresql'.freeze
+        #
+        # PostgreSQL Supports the fast setting of multiple update values that differ
+        # per row from a temporary table.
+        #
+        updates = ''
+        existing.each do |period_index, (values, df_id)|
+          updates <<  "(#{df_id}, #{period_index}, #{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}),"
         end
-      end
-    end
-
-    def bulk_delete(id, indices)
-      ActiveDataFrame::DataFrameProxy.suppress_logs do
-        block_type.where(data_frame_id: id, period_index: indices).delete_all
-      end
-    end
-
-    ##
-    # Insert block data for all blocks in a single call
-    ##
-    def bulk_insert(new_blocks, instance)
-      ActiveDataFrame::DataFrameProxy.suppress_logs do
-        inserts = ''
-        new_blocks.each do |period_index, (values)|
-          inserts << \
-          case ActiveRecord::Base.connection_config[:adapter]
-          when 'postgresql', 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
-          else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
-          end
-        end
-        perform_insert(inserts)
-      end
-    end
-
-    def perform_update(updates)
-      ActiveDataFrame::DataFrameProxy.suppress_logs do
         Database.execute(
           <<-SQL
           UPDATE #{block_type.table_name}
@@ -139,15 +83,68 @@ SQL
             AND #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
           SQL
         )
-        true
+      #
+      # For MySQL we use the ON DUPLICATE KEY UPDATE functionality.
+      # This relies on there being a unique index dataframe and period index
+      # on the blocks table.
+      # This tends to be faster than the general CASE based solution below
+      # but slower than the PostgreSQL solution above
+      #
+      when 'mysql2'.freeze
+        # Fast bulk update
+        updates, on_duplicate = "", ""
+        existing.each do |period_index, (values, df_id)|
+          updates << "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
+        end
+        on_duplicate = block_type::COLUMNS.map do |cname|
+          "#{cname}=VALUES(#{cname})"
+        end.join(", ")
+        stmt = <<-SQL
+          INSERT INTO #{block_type.table_name} (#{block_type::COLUMNS.join(',')},data_frame_id,period_index,data_frame_type)
+          VALUES #{updates[0..-2]}
+          ON DUPLICATE KEY UPDATE #{on_duplicate}
+        SQL
+        Database.execute(stmt)
+      else
+        #
+        # General CASE based solution for multiple differing updates
+        # set per row.
+        # We use a CASE statement per column which determines the column
+        # to set based on the period index
+        #
+        ids = existing.map {|_, (_, id)| id}
+        updates = block_type::COLUMNS.map.with_index do |column, column_idx|
+          [column, "CASE period_index\n#{existing.map{|period_index, (values, _)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
+        end.to_h
+        update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
+        Database.execute(<<-SQL
+          UPDATE #{block_type.table_name} SET #{update_statement} WHERE
+          #{block_type.table_name}.data_frame_id IN (#{ids.join(',')})
+          AND #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
+          AND #{block_type.table_name}.period_index IN (#{existing.keys.join(', ')});
+        SQL
+        )
       end
     end
 
-    def perform_insert(inserts)
-      ActiveDataFrame::DataFrameProxy.suppress_logs do
-        sql = "INSERT INTO #{block_type.table_name} (#{block_type::COLUMNS.join(',')}, data_frame_id, period_index, data_frame_type) VALUES #{inserts[0..-2]}"
-        Database.execute sql
+    def bulk_delete(id, indices)
+      block_type.where(data_frame_id: id, period_index: indices).delete_all
+    end
+
+    ##
+    # Insert block data for all blocks in a single call
+    ##
+    def bulk_insert(new_blocks, instance)
+      inserts = ''
+      new_blocks.each do |period_index, (values)|
+        inserts << \
+        case ActiveRecord::Base.connection_config[:adapter]
+        when 'postgresql', 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
+        else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{instance.id}, #{period_index}, '#{data_frame_type.name}'),"
+        end
       end
+      sql = "INSERT INTO #{block_type.table_name} (#{block_type::COLUMNS.join(',')}, data_frame_id, period_index, data_frame_type) VALUES #{inserts[0..-2]}"
+      Database.execute sql
     end
   end
 end

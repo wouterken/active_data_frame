@@ -1,0 +1,20 @@
+Description:
+    Generate a new data frame type, and optionally inject it into models that have such a data frame
+
+Example:
+
+    # Generate a new MeterReading data frame type, with a block type of
+    # double and a block size of 48 data points
+
+    rails generate active_data_frame:install MeterReading double 48
+
+    # Generate a new Dimension data frame type, with a block type of
+    # float and a block size of 10 data points.
+    # Inject the data-type for use into the Iris model
+
+    rails generate active_data_frame:install Dimension float 10 Iris
+
+    #
+    # Generate a new status data frame type with an integer block type
+    #
+    rails generate active_data_frame:install Status integer

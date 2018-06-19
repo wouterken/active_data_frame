@@ -42,7 +42,6 @@ module ActiveDataFrame
         col_cases = cases[col].sort_by(&:begin).reduce([]) do |agg, col_case|
           if agg.empty?
             agg << col_case
-            agg
           else
             if agg[-1].end.succ == col_case.begin
               agg[-1] = (agg[-1].begin..col_case.end)
