@@ -2,8 +2,7 @@ case ENV['TEST_DB']
 when 'mysql'
   db_config_mysql = YAML::load(File.open(File.expand_path('../../database.yml', __FILE__))).merge({
     adapter: 'mysql2',
-    username: 'root',
-    flags: ["MULTI_STATEMENTS"]
+    username: 'root'
   })
   db_config_mysql_admin = db_config_mysql.merge({database: 'information_schema'})
   ActiveRecord::Base.establish_connection(db_config_mysql_admin)

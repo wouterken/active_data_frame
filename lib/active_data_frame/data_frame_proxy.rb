@@ -31,12 +31,27 @@ module ActiveDataFrame
     def []=(from, values)
       values = Array(values).flatten.map(&@value_map.method(:[])) if @value_map
       from = column_map[from] if column_map && column_map[from]
-      set(from, M[values, typecode: block_type::TYPECODE].to_a.flatten)
+      if values.kind_of?(Hash)
+        values = verify_and_cleanse_hash_values(values)
+      else
+        values = M[values, typecode: block_type::TYPECODE].to_a.flatten
+      end
+      set(from, values)
+    end
+
+    def verify_and_cleanse_hash_values(map)
+      length = nil
+      map.transform_values do |values|
+        cleansed = M[values, typecode: block_type::TYPECODE].to_a.flatten
+        raise "All streams provided via a hash must be of the same length" if length && length != cleansed.length
+        length ||= cleansed.length
+        cleansed
+      end
     end
 
     def clear(*ranges)
       extract_ranges(ranges).each do |r|
-        set(r.first, M.blank(columns: r.last - r.first, typecode: block_type::TYPECODE))
+        set(r.first, M.blank(columns: r.last - r.first, typecode: block_type::TYPECODE), trim: true)
       end
     end
 
@@ -96,6 +111,10 @@ module ActiveDataFrame
     end
 
     def get_bounds(from, to, index=0)
+      self.class.get_bounds(from, to, block_type, index)
+    end
+
+    def self.get_bounds(from, to, block_type, index=0)
       from_block_index  = from / block_type::BLOCK_SIZE
       from_block_offset = from % block_type::BLOCK_SIZE
       to_block_index    = to / block_type::BLOCK_SIZE
@@ -117,6 +136,12 @@ module ActiveDataFrame
     end
 
     def iterate_bounds(all_bounds)
+      self.class.iterate_bounds(all_bounds, block_type) do |index, left, right, cursor, size|
+        yield index, left, right, cursor, size
+      end
+    end
+
+    def self.iterate_bounds(all_bounds, block_type)
       cursor = 0
       all_bounds.each do |bounds|
         index = bounds.from.index
