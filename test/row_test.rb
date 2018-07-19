@@ -84,8 +84,34 @@ class RowTest < TransactionalTest
   end
 
   def test_fuzzing
-    length = 1_000
+    length = 3_000
     iterations = 1_000
+    mirror = length.times.map{|i| i }
+    Blocks::ArrivalBlock.delete_all
+    airport = Airport.first
+    airport.arrivals[0] = mirror
+    iterations.times do |i|
+      assert_equal airport.arrivals[0...length].to_a, mirror
+      from = Random.rand(1...length)
+      to   = Random.rand(from.succ..length)
+      action = [:set, :delete].sample
+      case action
+      when :set
+        data =  M.blank(columns: to - from).random!.*(100).to_type(M::Typecode::INT)
+        mirror[from...to] = data.to_a
+        airport.arrivals[from] = data
+      when :delete
+        mirror[from...to] = [0] * (to - from)
+        airport.arrivals.clear(from...to)
+      end
+    end
+    airport.arrivals.clear(0...length)
+    assert_equal Blocks::ArrivalBlock.count, 0
+  end
+
+  def test_fuzzing_large
+    length     = 2_000_000
+    iterations = 20
     mirror = length.times.map{|i| i }
     Blocks::ArrivalBlock.delete_all
     airport = Airport.first
@@ -93,7 +119,7 @@ class RowTest < TransactionalTest
     iterations.times do |i|
       assert_equal airport.arrivals[0...length], mirror
       from = Random.rand(1...length)
-      to   = Random.rand(from.succ..length)
+      to   = Random.rand(from.succ..[length, from + 25_000].min)
       action = [:set, :delete].sample
       case action
       when :set

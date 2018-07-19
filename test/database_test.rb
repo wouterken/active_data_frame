@@ -54,7 +54,7 @@ class DatabaseTest < TransactionalTest
     airport.arrivals[date] = arrival_data
     refute_equal Blocks::ArrivalBlock.where(data_frame_id: Airport.first.id).count, 0
 
-    airport.arrivals[date] = M.blank(columns: 10_000)
+    airport.arrivals.clear(date.to_time...(date.to_time + 10_000.day))
     assert_equal Blocks::ArrivalBlock.where(data_frame_id: Airport.first.id).count, 0
   end
 end

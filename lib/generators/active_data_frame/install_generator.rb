@@ -87,7 +87,7 @@ RUBY
       t.integer :period_index
 #{
     columns.times.map do |i|
-"      t.#{type} :t#{i+1}"
+"      t.#{type} :t#{i+1}, default: 0, allow_nil: false"
     end.join("\n")
     }
 RUBY

@@ -8,7 +8,10 @@ require 'rmatrix'
 
 module ActiveDataFrame
   CONFIG = OpenStruct.new({
-    suppress_logs: true
+    suppress_logs: false,
+    insert_max_batch_size: 10_000,
+    update_max_batch_size: 10_000,
+    delete_max_batch_size: 10_000,
   })
 
   module_function
@@ -16,7 +19,7 @@ module ActiveDataFrame
       yield CONFIG
     end
 
-    def suppress_logs
-      CONFIG.suppress_logs
+    CONFIG.each_pair do |(key)|
+      define_method(key){ CONFIG.send(key) }
     end
 end
