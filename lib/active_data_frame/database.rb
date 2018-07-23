@@ -78,7 +78,7 @@ module ActiveDataFrame
       existing.each_slice(ActiveDataFrame.update_max_batch_size) do |existing_slice|
         # puts "Updating slice of #{existing_slice.length}"
         case ActiveRecord::Base.connection_config[:adapter]
-        when 'postgresql'.freeze
+        when 'postgresql'.freeze, 'odbc'.freeze
           #
           # PostgreSQL Supports the fast setting of multiple update values that differ
           # per row from a temporary table.

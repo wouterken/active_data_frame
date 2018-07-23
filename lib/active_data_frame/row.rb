@@ -26,7 +26,7 @@ module ActiveDataFrame
       length                 = values.kind_of?(Hash) ? values.values.first.length : values.length
       to                     = from + length - 1
       bounds                 = get_bounds(from, to, block_type)
-      scope                  = block_type.where(data_frame_type: data_frame_type.name, data_frame_id: rows.select(:id))
+      scope                  = block_type.where(data_frame_type: data_frame_type.name, data_frame_id: data_frame_type.unscoped.from(("(#{rows.select("*").to_sql}) as #{data_frame_type.table_name}")))
       scope                  = scope.where(data_frame_id: values.keys) if values.kind_of?(Hash)
       all_update_indices     = scope.where(period_index: bounds.from.index..bounds.to.index).order(data_frame_id: :asc, period_index: :asc).pluck(:data_frame_id, :period_index)
       grouped_update_indices = all_update_indices.group_by(&:first).transform_values{|value| Set.new(value.map!(&:last)) }

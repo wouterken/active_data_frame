@@ -93,15 +93,18 @@ module ActiveDataFrame
         ids = data_frame_type.pluck(:id)
         as_sql = blocks_between(
           all_bounds,
-          block_scope: data_frame_type.unscoped.where(
-            "#{data_frame_type.table_name}.id IN (SELECT id FROM (#{data_frame_type.select(:id).to_sql}) airport_ids)"
-          ).joins("LEFT JOIN #{block_type.table_name} ON #{data_frame_type.table_name}.id = #{block_type.table_name}.data_frame_id")
+          block_scope: data_frame_type.unscoped.from("(#{data_frame_type.select("*").to_sql}) as #{data_frame_type.table_name}").joins("LEFT JOIN #{block_type.table_name} ON #{data_frame_type.table_name}.id = #{block_type.table_name}.data_frame_id")
         ).where(
           block_type.table_name => {data_frame_type: data_frame_type.name }
         ).select(:period_index, :data_frame_id, *column_cases(case_map)).to_sql
 
         index_map = ids.each_with_index.to_h
-        ActiveRecord::Base.connection.execute(as_sql)
+        case ActiveRecord::Base.connection_config[:adapter]
+        when 'odbc'.freeze
+          ActiveRecord::Base.connection.exec_query(as_sql)
+        else
+          ActiveRecord::Base.connection.execute(as_sql)
+        end
       end
 
       case ActiveRecord::Base.connection_config[:adapter]
@@ -109,7 +112,7 @@ module ActiveDataFrame
         res.each_row {|pi, data_frame_id, *values| existing_blocks[pi][data_frame_id] = values }
       when 'mysql2'.freeze
         res.each {|pi, data_frame_id, *values| existing_blocks[pi][data_frame_id] = values }
-      when 'sqlite3'.freeze
+      when 'sqlite3'.freeze,'odbc'.freeze
         res.map(&:values).each {|pi, data_frame_id, *values| existing_blocks[pi][data_frame_id] = values }
       end
 
@@ -193,7 +196,20 @@ module ActiveDataFrame
     private
 
       def scope
-        @scope ||= block_type.where(data_frame_type: data_frame_type.name, data_frame_id: data_frame_type.select(:id))
+        columns_for_select = block_type.column_names.map{|cn| "#{block_type.table_name}.#{cn}" }.join(', ')
+        @scope ||= block_type.from(
+          "(
+            #{data_frame_type
+              .select(columns_for_select)
+              .joins(<<~SQL
+                INNER JOIN #{block_type.table_name} ON
+                  #{block_type.table_name}.data_frame_id = #{data_frame_type.table_name}.id AND
+                  #{block_type.table_name}.data_frame_type = '#{data_frame_type.name}'
+                SQL
+              ).to_sql
+            }
+          ) as #{block_type.table_name}"
+        )
       end
 
       def select_agg_indices(ranges, agg, filter, condition, **args)
