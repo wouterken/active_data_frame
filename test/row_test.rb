@@ -79,8 +79,8 @@ class RowTest < TransactionalTest
     assert_equal Airport.first.departures[no_data_date...no_data_date2].length, 8760
     assert_equal Airport.first.departures[no_data_date2].to_f, 0
 
-    assert_equal Airport.first.status[1_000_000], [[:normal]]
-    assert_equal Airport.first.status[1_000_000..1_000_001], [[:normal, :normal]]
+    assert_equal Airport.first.status[1_000_000].to_a, [:normal]
+    assert_equal Airport.first.status[1_000_000..1_000_001].to_a, [:normal, :normal]
   end
 
   def test_fuzzing
@@ -97,7 +97,7 @@ class RowTest < TransactionalTest
       action = [:set, :delete].sample
       case action
       when :set
-        data =  M.blank(columns: to - from).random!.*(100).to_type(M::Typecode::INT)
+        data =  V.blank(columns: to - from).random!.*(100).to_type(M::Typecode::INT)
         mirror[from...to] = data.to_a
         airport.arrivals[from] = data
       when :delete
@@ -123,7 +123,7 @@ class RowTest < TransactionalTest
       action = [:set, :delete].sample
       case action
       when :set
-        data =  M.blank(columns: to - from).random!.*(100).to_type(M::Typecode::INT)
+        data =  V.blank(columns: to - from).random!.*(100).to_type(M::Typecode::INT)
         mirror[from...to] = data.to_a
         airport.arrivals[from] = data
       when :delete

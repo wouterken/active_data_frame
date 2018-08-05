@@ -14,8 +14,11 @@ module ActiveDataFrame
 
     def self.set_all(scope, block_type, data_frame_type, from, values, trim: false)
       if trim || ActiveRecord::Base.connection_config[:adapter] === 'mysql2'
-        scope.each do |instance|
-          Row.new(block_type, data_frame_type, instance).patch(from, values.kind_of?(Hash) ? values[instance.id] : values)
+        case values
+        when Hash then scope.where(id: values.keys)
+                            .each{|instance| Row.new(block_type, data_frame_type, instance)
+                            .patch(from, values[instance.id]) }
+        else           scope.each{|instance| Row.new(block_type, data_frame_type, instance).patch(from, values) }
         end
       else
         upsert_all(scope, block_type, data_frame_type, from, values)
@@ -111,7 +114,7 @@ module ActiveDataFrame
       existing = self.class.suppress_logs{
         blocks_between(all_bounds).pluck(:period_index, *block_type::COLUMNS).map{|pi, *values| [pi, values]}.to_h
       }
-      result   = M.blank(typecode: block_type::TYPECODE, columns: all_bounds.map(&:length).sum)
+      result = V.blank(typecode: block_type::TYPECODE, columns: all_bounds.map(&:length).sum)
 
       iterate_bounds(all_bounds) do |index, left, right, cursor, size|
         if block = existing[index]

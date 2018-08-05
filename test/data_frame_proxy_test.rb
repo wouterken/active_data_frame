@@ -20,7 +20,7 @@ class DataFrameProxyTest < TransactionalTest
     called = false
     ap_singleton.define_singleton_method(:get){|*args|
       called = true
-      []
+      M[]
     }
     ap_singleton[1..10]
     assert called
@@ -57,7 +57,7 @@ class DataFrameProxyTest < TransactionalTest
 
   def test_it_exposes_named_columns_through_method_missing
     Airport.status.column_name_map.each do |column|
-      assert_equal Airport.first.status.send(column), [[:normal]]
+      assert_equal Airport.first.status.send(column).to_a, [:normal]
     end
   end
 

@@ -22,18 +22,21 @@ module ActiveDataFrame
     def [](*ranges)
       result = get(extract_ranges(ranges))
       if @value_map
-        result.map{|row| reverse_value_map[row]}
+        result.to_type(M::Typecode::OBJECT).mmap{|row| reverse_value_map[row]}.tap do |mapped|
+          mapped.row_map = result.row_map
+        end
       else
         result
       end
     end
 
     def []=(from, values)
-      values = Array(values).flatten.map(&@value_map.method(:[])) if @value_map
+
       from = column_map[from] if column_map && column_map[from]
       if values.kind_of?(Hash)
         values = verify_and_cleanse_hash_values(values)
       else
+        values = Array(values).flatten.map(&@value_map.method(:[])) if @value_map
         values = M[values, typecode: block_type::TYPECODE].to_a.flatten
       end
       set(from, values)
@@ -42,6 +45,7 @@ module ActiveDataFrame
     def verify_and_cleanse_hash_values(map)
       length = nil
       map.transform_values do |values|
+        values = Array(values).flatten.map(&@value_map.method(:[])) if @value_map
         cleansed = M[values, typecode: block_type::TYPECODE].to_a.flatten
         raise "All streams provided via a hash must be of the same length" if length && length != cleansed.length
         length ||= cleansed.length
@@ -51,7 +55,7 @@ module ActiveDataFrame
 
     def clear(*ranges)
       extract_ranges(ranges).each do |r|
-        set(r.first, M.blank(columns: r.last - r.first, typecode: block_type::TYPECODE), trim: true)
+        set(r.first, V.blank(columns: r.last - r.first, typecode: block_type::TYPECODE).to_a, trim: true)
       end
     end
 

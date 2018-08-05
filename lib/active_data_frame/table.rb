@@ -220,7 +220,7 @@ module ActiveDataFrame
           M[values, typecode: block_type::TYPECODE].mask{|x|
             index += 1
             !all_bounds.any?{|b| (b.from.position..b.to.position).include?(index) } || filter[x, args.values.first ]
-          }.where.to_a.map{|v| block_type::BLOCK_SIZE * period_index + v}.to_a
+          }.where.to_a.flatten.map{|v| block_type::BLOCK_SIZE * period_index + v}.to_a
         end
 
         if column_map
@@ -238,7 +238,7 @@ module ActiveDataFrame
         case_map  = build_case_map(all_bounds)
         existing  = blocks_between(all_bounds).group(:period_index).pluck(:period_index, *column_cases(case_map, agg))
                     .map{|pi, *values| [pi, values]}.to_h
-        result = M.blank(columns: all_bounds.map(&:length).sum, typecode: block_type::TYPECODE)
+        result = V.blank(columns: all_bounds.map(&:length).sum, typecode: block_type::TYPECODE)
 
         iterate_bounds(all_bounds) do |index, left, right, cursor, size|
           if block = existing[index]

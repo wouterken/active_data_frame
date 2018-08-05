@@ -23,11 +23,48 @@ class TableTest < TransactionalTest
   def test_it_supports_getting_values
     assert_equal Airport.arrivals['2001-01-01'].length, Airport.count
     assert_equal Airport.arrivals['2001-01-01'..'2001-01-01 01:00'].length, Airport.count * 2
-    assert_equal Airport.status.control_tower.uniq, [[:normal]]
+    assert_equal Airport.status.control_tower.to_a.uniq, [[:normal]]
 
     Airport.where(country: 'US').status[:control_tower] = [:critical]
-    assert_equal Airport.status.control_tower.uniq.sort, [[:critical],[:normal]]
-    assert_equal Airport.where(country: 'US').status.control_tower.uniq.sort, [[:critical]]
+    assert_equal Airport.status.control_tower.to_a.uniq.sort, [[:critical],[:normal]]
+    assert_equal Airport.where(country: 'US').status.control_tower.to_a.uniq.sort, [[:critical]]
+  end
+
+  def test_it_supports_setting_hash_values
+    random_airport_ids = Airport.pluck(:id).sample(12)
+    random_airports = Airport.where(id: random_airport_ids)
+    data = random_airport_ids.map do |id|
+      [id, [*100...200].sample(10)]
+    end.to_h
+    departure_data = Airport.where(id: data.keys).departures['2001-01-01'...'2001-01-01 10:00']
+    random_airports.each do |ap|
+      refute_equal departure_data[ap], data[ap.id]
+    end
+
+    Airport.departures['2001-01-01'] = data
+    departure_data = Airport.where(id: data.keys).departures['2001-01-01'...'2001-01-01 10:00']
+    random_airports.each do |ap|
+      assert_equal departure_data[ap], data[ap.id]
+    end
+  end
+
+  def test_it_supports_row_mappings
+    range = '2001-01-01'...'2001-01-01 10:00'
+    arrivals_matrix = Airport.arrivals[range]
+    # Row mapped matrix, is equal to individually retrieved rows
+    Airport.find_each do |ap|
+      assert_equal ap.arrivals[range], arrivals_matrix[ap]
+    end
+    random_data = Airport.pluck(:id).map do |id|
+      [id, 10.times.map{ [:critical, :normal].sample }]
+    end.to_h
+    Airport.status[0] = random_data
+    # Same goes for statuses
+    status_matrix = Airport.status[0...10]
+    Airport.find_each do |ap|
+      assert_equal ap.status[0...10], status_matrix[ap]
+      assert_equal ap.status[0...10].to_a, random_data[ap.id]
+    end
   end
 
   def test_it_supports_deleting_values
@@ -49,7 +86,7 @@ class TableTest < TransactionalTest
 
   def test_it_supports_getting_nonexistent_values
     non_existent_date = '3001-01-01'
-    assert_equal Airport.status[5000], [[:normal]] * Airport.count # Normal == 0
+    assert_equal Airport.status[5000].to_a, [[:normal]] * Airport.count # Normal == 0
     assert_equal Airport.temperature[non_existent_date].T, [0] * Airport.count
   end
 

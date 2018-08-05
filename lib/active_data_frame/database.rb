@@ -129,7 +129,7 @@ module ActiveDataFrame
           #
           ids = existing_slice.map {|_, (_, id)| id}
           updates = columns.map.with_index do |column, column_idx|
-            [column, "CASE period_index\n#{existing_slice.map{|period_index, (values, _)| "WHEN #{period_index} then #{values[column_idx]}"}.join("\n")} \nEND\n"]
+            [column, "CASE \n#{existing_slice.map{|period_index, (values, df_id)| "WHEN period_index=#{period_index} AND data_frame_id=#{df_id} then #{values[column_idx]}" }.join("\n")} \nEND\n"]
           end.to_h
           update_statement = updates.map{|cl, up| "#{cl} = #{up}" }.join(', ')
           Database.execute(<<-SQL
