@@ -147,10 +147,10 @@ module ActiveDataFrame
       result.row_map = Hash.new do |h ,k|
         h[k] = begin
           case k
-          when ActiveRecord::Base then index_map[k.id]
-          when ActiveRecord::Relation then k.pluck(:id).map{|i| index_map[i] }
-          when ->(list){ list.kind_of?(Array) && list.all?{|v| v.kind_of?(ActiveRecord::Base)}} then k.map{|i| index_map[i.id] }
-          when Numeric then index_map[k]
+          when ActiveRecord::Base then index_map.fetch(k.id)
+          when ActiveRecord::Relation then k.pluck(:id).map{|i| index_map.fetch(i) }
+          when ->(list){ list.kind_of?(Array) && list.all?{|v| v.kind_of?(ActiveRecord::Base)} } then k.map{|i| index_map.fetch(i.id) }
+          when Numeric then index_map.fetch(k)
           end
         end
       end
