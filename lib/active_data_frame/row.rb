@@ -31,9 +31,7 @@ module ActiveDataFrame
       bounds                 = get_bounds(from, to, block_type)
       scope                  = block_type.where(data_frame_type: data_frame_type.name, data_frame_id: rows.select(:id))
       scope                  = scope.where(data_frame_id: values.keys) if values.kind_of?(Hash)
-      all_update_indices     = scope.where(period_index: bounds.from.index..bounds.to.index).order(data_frame_id: :asc, period_index: :asc).pluck(:data_frame_id, :period_index)
-      grouped_update_indices = all_update_indices.group_by(&:first).transform_values{|value| Set.new(value.map!(&:last)) }
-      instance_ids           = rows.pluck(:id)
+      instance_ids           = rows.loaded? ? rows.map(&:id) : rows.pluck(:id)
       instance_ids           &= values.keys if values.kind_of?(Hash)
       upserts = to_enum(:iterate_bounds, [bounds], block_type).flat_map do |index, left, right, cursor, size|
         instance_ids.map do |instance_id|
@@ -42,8 +40,7 @@ module ActiveDataFrame
         end
       end
 
-      update, insert = upserts.partition{|upsert| grouped_update_indices[upsert[:data_frame_id]]&.include?(upsert[:period_index]) }
-      Database.for_types(block: block_type, df: data_frame_type).bulk_upsert(update, insert)
+      Database.for_types(block: block_type, df: data_frame_type).bulk_upsert(upserts, ->{scope.where(period_index: bounds.from.index..bounds.to.index)})
       values
     end
 
@@ -58,16 +55,10 @@ module ActiveDataFrame
     def upsert(from, values)
       to             = (from + values.length) - 1
       bounds         = get_bounds(from, to)
-      update_indices = Set.new(scope.where(period_index: bounds.from.index..bounds.to.index).order(period_index: :asc).pluck(:period_index))
-      # Detect blocks in bounds:
-      # - If existing and covered, do an update without load
-      # - If existing and uncovered, do a small write (without load)
-      # - If not existing, insert!
       upserts = to_enum(:iterate_bounds, [bounds]).map do |index, left, right, cursor, size|
         [[:data_frame_id, self.instance.id], [:period_index, index], *(left.succ..right.succ).map{|v| :"t#{v}" }.zip(values[cursor...cursor + size])].to_h
       end
-      update, insert = upserts.partition{|upsert| update_indices.include?(upsert[:period_index]) }
-      database.bulk_upsert(update, insert)
+      database.bulk_upsert(upserts, ->{ scope.where(period_index: bounds.from.index..bounds.to.index)})
       values
     end
 
@@ -98,7 +89,6 @@ module ActiveDataFrame
           new_blocks[index].first[left..right] = chunk.to_a
         end
       end
-
 
       database.bulk_delete(self.instance.id, deleted_indices) unless deleted_indices.size.zero?
       database.bulk_update(existing)       unless existing.size.zero?

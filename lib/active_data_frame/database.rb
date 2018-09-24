@@ -59,20 +59,51 @@ module ActiveDataFrame
       flush! unless self.batching
     end
 
-    def bulk_upsert(updates, inserts)
+    def bulk_upsert(upserts, scope=nil)
       Database.batch do
-        updates.group_by(&:keys).transform_values{|v| v.map(&:values) }.each do |columns, rows|
-          update = rows.map{|df_id, period_index, *values| [period_index, [values, df_id]] }
-          bulk_update(update, columns - [:data_frame_id, :period_index])
-        end
-        inserts.group_by(&:keys).transform_values{|v| v.map(&:values) }.each do |columns, rows|
-          insert = rows.map{|df_id, period_index, *values| [period_index, [values, df_id]] }
-          bulk_insert(insert, columns - [:data_frame_id, :period_index])
+        case ActiveRecord::Base.connection_config[:adapter]
+        when 'postgresql'.freeze
+          upserts.group_by(&:keys).each do |columns, value_list|
+            columns = columns - [:data_frame_id, :period_index]
+            inserts = ''
+            value_list.each do |row|
+              df_id, period_index, *values = row.values
+              inserts <<  "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
+            end
+            sql = %Q{
+              INSERT INTO #{block_type.table_name} (#{columns.join(',')}, data_frame_id, period_index, data_frame_type)
+              VALUES #{inserts[0..-2]}
+              ON CONFLICT(data_frame_id, period_index, data_frame_type) DO UPDATE
+              SET #{columns.map{|c| "#{c} = excluded.#{c} "}.join(',')}
+            }
+            Database.execute sql
+          end
+        when 'mysql2'.freeze
+          upserts.group_by(&:keys).each do |columns, rows|
+            update = rows.map(&:values).map{|df_id, period_index, *values| [period_index, [values, df_id]] }
+            bulk_update(update, columns - [:data_frame_id, :period_index])
+          end
+        else
+          all_update_indices     = scope[].pluck(:data_frame_id, :period_index)
+          grouped_update_indices = all_update_indices.group_by(&:first).transform_values{|value| Set.new(value.map!(&:last)) }
+          updates, inserts = upserts.partition{|upsert| grouped_update_indices[upsert[:data_frame_id]]&.include?(upsert[:period_index]) }
+          updates.group_by(&:keys).each do |columns, rows|
+            update = rows.map(&:values).map{|df_id, period_index, *values| [period_index, [values, df_id]] }
+            bulk_update(update, columns - [:data_frame_id, :period_index])
+          end
+          inserts.group_by(&:keys).each do |columns, rows|
+            insert = rows.map(&:values).map{|df_id, period_index, *values| [period_index, [values, df_id]] }
+            bulk_insert(insert, columns - [:data_frame_id, :period_index])
+          end
         end
       end
     end
+
     ##
-    # Update block data for all blocks in a single call
+    # Fast update block data for all blocks in a single call.
+    # Uses UPDATE + SET in PostgreSQL
+    # Uses INSERT ON CONFLICT for MySQL (Upsert)
+    # Uses UPDATE with CASE on others
     ##
     def bulk_update(existing, columns=block_type::COLUMNS)
       existing.each_slice(ActiveDataFrame.update_max_batch_size) do |existing_slice|
@@ -143,6 +174,7 @@ module ActiveDataFrame
       end
     end
 
+
     def bulk_delete(id, indices)
       indices.each_slice(ActiveDataFrame.delete_max_batch_size) do |slice|
         # puts "Deleting slice of #{slice.length}"
@@ -152,20 +184,30 @@ module ActiveDataFrame
 
     ##
     # Insert block data for all blocks in a single call
+    # PostgreSQL uses COPY, others use multi-statement insert
     ##
     def bulk_insert(new_blocks, columns=block_type::COLUMNS)
       new_blocks.each_slice(ActiveDataFrame.insert_max_batch_size) do |new_blocks_slice|
-        # puts "Inserting slice of #{new_blocks_slice.length}"
-        inserts = ''
-        new_blocks_slice.each do |period_index, (values, df_id)|
-          inserts << \
-          case ActiveRecord::Base.connection_config[:adapter]
-          when 'postgresql', 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
-          else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
+        if ActiveRecord::Base.connection_config[:adapter] == 'postgresql'
+          copy_statement = "COPY #{block_type.table_name} (#{columns.join(',')},data_frame_id,period_index,data_frame_type) FROM STDIN CSV"
+          db_conn = ActiveRecord::Base.connection.raw_connection
+          db_conn.copy_data(copy_statement) do
+            new_blocks_slice.each do |period_index, (values, df_id)|
+              db_conn.put_copy_data((values + [df_id, period_index, data_frame_type.name]).join(',') << "\n")
+            end
           end
+        else
+          inserts = ''
+          new_blocks_slice.each do |period_index, (values, df_id)|
+            inserts << \
+            case ActiveRecord::Base.connection_config[:adapter]
+            when 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
+            else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
+            end
+          end
+          sql = "INSERT INTO #{block_type.table_name} (#{columns.join(',')}, data_frame_id, period_index, data_frame_type) VALUES #{inserts[0..-2]}"
+          Database.execute sql
         end
-        sql = "INSERT INTO #{block_type.table_name} (#{columns.join(',')}, data_frame_id, period_index, data_frame_type) VALUES #{inserts[0..-2]}"
-        Database.execute sql
       end
     end
   end
