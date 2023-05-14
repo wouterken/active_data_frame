@@ -26,7 +26,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'pry'
   spec.add_development_dependency 'pg'
   spec.add_development_dependency 'sqlite3'
-  # spec.add_development_dependency 'mysql2'
+  spec.add_development_dependency 'mysql2'
   spec.add_development_dependency 'minitest', '~>5.11'
   spec.add_development_dependency 'minitest-reporters', '~> 1.1', '>= 1.1.0'
   spec.add_development_dependency 'minitest-around', '0.4.1'
