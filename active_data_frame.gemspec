@@ -30,6 +30,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'minitest', '~>5.11'
   spec.add_development_dependency 'minitest-reporters', '~> 1.1', '>= 1.1.0'
   spec.add_development_dependency 'minitest-around', '0.4.1'
-  spec.add_runtime_dependency     'activerecord', '~> 6.0'
+  spec.add_runtime_dependency     'activerecord', '~> 7.0'
   spec.add_runtime_dependency     'rmatrix', '~> 0.1.20', '>=0.1.20'
 end

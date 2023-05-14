@@ -94,12 +94,12 @@ class TableTest < TransactionalTest
     nz_airports = Airport.where(country: 'NZ')
     us_airports = Airport.where(country: 'US')
     # Single values
-    assert_equal nz_airports.temperature.avg['2001-01-01'].round(2), (nz_airports.map{|a| a.temperature['2001-01-01'] }.sum / nz_airports.count).round(2)
-    assert_equal us_airports.temperature.avg['2001-01-01'].round(2), (us_airports.map{|a| a.temperature['2001-01-01'] }.sum / us_airports.count).round(2)
+    assert_equal nz_airports.temperature.avg['2001-01-01'].round(2), (nz_airports.map{|a| a.temperature['2001-01-01'] }.sum(0) / nz_airports.count).round(2)
+    assert_equal us_airports.temperature.avg['2001-01-01'].round(2), (us_airports.map{|a| a.temperature['2001-01-01'] }.sum(0) / us_airports.count).round(2)
 
     # Multiple values
-    assert_equal nz_airports.temperature.avg['2001-01-01'..'2001-02-03'].round(2), (nz_airports.map{|a| a.temperature['2001-01-01'..'2001-02-03'] }.sum / nz_airports.count).round(2)
-    assert_equal us_airports.temperature.avg['2001-01-01'..'2001-02-03'].round(2), (us_airports.map{|a| a.temperature['2001-01-01'..'2001-02-03'] }.sum / us_airports.count).round(2)
+    assert_equal nz_airports.temperature.avg['2001-01-01'..'2001-02-03'].round(2), (nz_airports.map{|a| a.temperature['2001-01-01'..'2001-02-03'] }.sum(0) / nz_airports.count).round(2)
+    assert_equal us_airports.temperature.avg['2001-01-01'..'2001-02-03'].round(2), (us_airports.map{|a| a.temperature['2001-01-01'..'2001-02-03'] }.sum(0) / us_airports.count).round(2)
   end
 
   def test_it_supports_sum_aggregate
