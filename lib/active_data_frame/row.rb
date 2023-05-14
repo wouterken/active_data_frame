@@ -13,7 +13,7 @@ module ActiveDataFrame
     end
 
     def self.set_all(scope, block_type, data_frame_type, from, values, trim: false)
-      if trim || ActiveRecord::Base.connection_config[:adapter] === 'mysql2'
+      if trim || ActiveRecord::Base.connection_db_config.adapter === 'mysql2'
         case values
         when Hash then scope.where(id: values.keys)
                             .each{|instance| Row.new(block_type, data_frame_type, instance)
@@ -45,7 +45,7 @@ module ActiveDataFrame
     end
 
     def set(from, values, trim: false)
-      if trim || ActiveRecord::Base.connection_config[:adapter] === 'mysql2'
+      if trim || ActiveRecord::Base.connection_db_config.adapter === 'mysql2'
         patch(from, values)
       else
         upsert(from, values)

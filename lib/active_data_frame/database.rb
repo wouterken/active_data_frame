@@ -16,7 +16,7 @@ module ActiveDataFrame
         unless sql.empty?
           ActiveRecord::Base.transaction do
             ActiveDataFrame::DataFrameProxy.suppress_logs do
-              case ActiveRecord::Base.connection_config[:adapter]
+              case ActiveRecord::Base.connection_db_config.adapter
               when 'sqlite3'.freeze
                 ActiveRecord::Base.connection.raw_connection.execute_batch sql
               when 'mysql2'
@@ -61,7 +61,7 @@ module ActiveDataFrame
 
     def bulk_upsert(upserts, scope=nil)
       Database.batch do
-        case ActiveRecord::Base.connection_config[:adapter]
+        case ActiveRecord::Base.connection_db_config.adapter
         when 'postgresql'.freeze
           upserts.group_by(&:keys).each do |columns, value_list|
             columns = columns - [:data_frame_id, :period_index]
@@ -108,7 +108,7 @@ module ActiveDataFrame
     def bulk_update(existing, columns=block_type::COLUMNS)
       existing.each_slice(ActiveDataFrame.update_max_batch_size) do |existing_slice|
         # puts "Updating slice of #{existing_slice.length}"
-        case ActiveRecord::Base.connection_config[:adapter]
+        case ActiveRecord::Base.connection_db_config.adapter
         when 'postgresql'.freeze
           #
           # PostgreSQL Supports the fast setting of multiple update values that differ
@@ -188,7 +188,7 @@ module ActiveDataFrame
     ##
     def bulk_insert(new_blocks, columns=block_type::COLUMNS)
       new_blocks.each_slice(ActiveDataFrame.insert_max_batch_size) do |new_blocks_slice|
-        if ActiveRecord::Base.connection_config[:adapter] == 'postgresql'
+        if ActiveRecord::Base.connection_db_config.adapter == 'postgresql'
           copy_statement = "COPY #{block_type.table_name} (#{columns.join(',')},data_frame_id,period_index,data_frame_type) FROM STDIN CSV"
           db_conn = ActiveRecord::Base.connection.raw_connection
           db_conn.copy_data(copy_statement) do
@@ -200,7 +200,7 @@ module ActiveDataFrame
           inserts = ''
           new_blocks_slice.each do |period_index, (values, df_id)|
             inserts << \
-            case ActiveRecord::Base.connection_config[:adapter]
+            case ActiveRecord::Base.connection_db_config.adapter
             when 'mysql2' then "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
             else "(#{values.map{|v| v.inspect.gsub('"',"'") }.join(',')}, #{df_id}, #{period_index}, '#{data_frame_type.name}'),"
             end

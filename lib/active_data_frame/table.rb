@@ -104,7 +104,7 @@ module ActiveDataFrame
         ActiveRecord::Base.connection.execute(as_sql)
       end
 
-      case ActiveRecord::Base.connection_config[:adapter]
+      case ActiveRecord::Base.connection_db_config.adapter
       when 'postgresql'.freeze
         res.each_row {|pi, data_frame_id, *values| existing_blocks[pi][data_frame_id] = values }
       when 'mysql2'.freeze
