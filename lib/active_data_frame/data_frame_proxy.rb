@@ -76,7 +76,7 @@ module ActiveDataFrame
     end
 
     def method_missing(name, *args, &block)
-      if name.to_s.ends_with?(?=)
+      if name.to_s.end_with?(?=)
         is_assignment = true
         name = name.to_s.gsub(/=$/,'').to_sym
       end
@@ -92,7 +92,7 @@ module ActiveDataFrame
       ranges.map do |range|
         case range
         when Range then range
-        when Fixnum then range..range
+        when Integer then range..range
         else raise "Unexpected index for data frame proxy #{range}, expecting either a Range or an Integer"
         end
       end

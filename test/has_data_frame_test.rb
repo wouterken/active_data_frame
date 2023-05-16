@@ -30,8 +30,8 @@ class HasDataFrameTest < TransactionalTest
   end
 
   def test_it_implements_custom_inspect_functionality
-    airport = Airport.include_temperature('2001-01-01' => "temperature")
-                     .include_departures('2001-01-01' => "departures")
+    airport = Airport.include_temperature({'2001-01-01' => "temperature"})
+                     .include_departures({'2001-01-01' => "departures"})
                      .first
     assert airport.inspect.include?('temperature')
     assert airport.inspect.include?('departures')
@@ -84,7 +84,7 @@ class HasDataFrameTest < TransactionalTest
       Airport.first.temp
     end
     # Show how we can select a single value from our data frame into our parent record
-    assert_equal Airport.include_temperature('2001-01-01' => :temp).first.temp,
+    assert_equal Airport.include_temperature({'2001-01-01' => :temp}).first.temp,
                  Airport.first.temperature['2001-01-01']
 
     # Show how we can select multiple values from our data frame into our parent record
@@ -109,13 +109,13 @@ class HasDataFrameTest < TransactionalTest
   end
 
   def test_it_uses_plain_sql_for_good_cross_compatibility
-    assert_equal Airport.include_temperature('2001-01-01' => :t1).to_sql,
+    assert_equal Airport.include_temperature({'2001-01-01' => :t1}).to_sql,
                  Airport.from("(SELECT * FROM airports  LEFT JOIN(SELECT temperature_blocks.data_frame_type as btemperature_blocks11322_data_frame_type, temperature_blocks.data_frame_id btemperature_blocks11322_data_frame_id, temperature_blocks.t12 as \"t1\" FROM temperature_blocks  WHERE temperature_blocks.period_index = 11322) btemperature_blocks11322 ON btemperature_blocks11322.btemperature_blocks11322_data_frame_type = 'Airport' AND btemperature_blocks11322.btemperature_blocks11322_data_frame_id = airports.id) as airports").to_sql
 
-    assert_equal Airport.include_temperature('2001-01-01' => "custom_name", '3001-01-01' => "custom_name_2").to_sql,
+    assert_equal Airport.include_temperature({'2001-01-01' => "custom_name", '3001-01-01' => "custom_name_2"}).to_sql,
                 Airport.from("(SELECT * FROM airports  LEFT JOIN(SELECT temperature_blocks.data_frame_type as btemperature_blocks11322_data_frame_type, temperature_blocks.data_frame_id btemperature_blocks11322_data_frame_id, temperature_blocks.t12 as \"custom_name\" FROM temperature_blocks  WHERE temperature_blocks.period_index = 11322) btemperature_blocks11322 ON btemperature_blocks11322.btemperature_blocks11322_data_frame_type = 'Airport' AND btemperature_blocks11322.btemperature_blocks11322_data_frame_id = airports.id LEFT JOIN(SELECT temperature_blocks.data_frame_type as btemperature_blocks376564_data_frame_type, temperature_blocks.data_frame_id btemperature_blocks376564_data_frame_id, temperature_blocks.t12 as \"custom_name_2\" FROM temperature_blocks  WHERE temperature_blocks.period_index = 376564) btemperature_blocks376564 ON btemperature_blocks376564.btemperature_blocks376564_data_frame_type = 'Airport' AND btemperature_blocks376564.btemperature_blocks376564_data_frame_id = airports.id) as airports").to_sql
 
-    assert_equal Airport.include_temperature('2001-01-01' => "temperature").include_departures('2001-01-01' => "departures").to_sql,
+    assert_equal Airport.include_temperature({'2001-01-01' => "temperature"}).include_departures({'2001-01-01' => "departures"}).to_sql,
                 Airport.from("(SELECT * FROM airports  LEFT JOIN(SELECT temperature_blocks.data_frame_type as btemperature_blocks11322_data_frame_type, temperature_blocks.data_frame_id btemperature_blocks11322_data_frame_id, temperature_blocks.t12 as \"temperature\" FROM temperature_blocks  WHERE temperature_blocks.period_index = 11322) btemperature_blocks11322 ON btemperature_blocks11322.btemperature_blocks11322_data_frame_type = 'Airport' AND btemperature_blocks11322.btemperature_blocks11322_data_frame_id = airports.id LEFT JOIN(SELECT departure_blocks.data_frame_type as bdeparture_blocks11322_data_frame_type, departure_blocks.data_frame_id bdeparture_blocks11322_data_frame_id, departure_blocks.t12 as \"departures\" FROM departure_blocks  WHERE departure_blocks.period_index = 11322) bdeparture_blocks11322 ON bdeparture_blocks11322.bdeparture_blocks11322_data_frame_type = 'Airport' AND bdeparture_blocks11322.bdeparture_blocks11322_data_frame_id = airports.id) as airports").to_sql
   end
 end
